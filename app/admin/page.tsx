@@ -1,0 +1,562 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { getErrorMessage } from "@/lib/error";
+
+type TournamentOption = {
+  slug: "masters" | "pga-championship" | "us-open" | "the-open";
+  label: string;
+};
+
+type Entrant = {
+  entrant_id: string;
+  entrant_name: string;
+  entrant_slug: string;
+  draft_position: number | null;
+  is_admin: boolean;
+};
+
+type GeneratedCodeState = {
+  entrant_id: string;
+  entrant_name: string;
+  entrant_slug: string;
+  access_code: string;
+  invite_link: string;
+};
+
+type HandicapPreviewRow = {
+  rank: number;
+  golfer: string;
+  best_odds: number;
+  sportsbook: string;
+  implied_probability: number;
+  normalized_probability: number;
+  handicap: number;
+};
+
+type LiveTournament = {
+  tournament_id: string;
+  name: string;
+  start_date: string | null;
+  end_date: string | null;
+  status: string | null;
+  venue: string | null;
+};
+
+const TOURNAMENTS: TournamentOption[] = [
+  { slug: "masters", label: "The Masters" },
+  { slug: "pga-championship", label: "PGA Championship" },
+  { slug: "us-open", label: "U.S. Open" },
+  { slug: "the-open", label: "The Open Championship" },
+];
+
+export default function AdminPage() {
+  const basePoolId = process.env.NEXT_PUBLIC_POOL_ID || "2026-majors";
+  const [selectedTournament, setSelectedTournament] = useState<TournamentOption["slug"]>("masters");
+  const [entrants, setEntrants] = useState<Entrant[]>([]);
+  const [sessionEntrant, setSessionEntrant] = useState<Entrant | null>(null);
+  const [loadingSession, setLoadingSession] = useState(true);
+  const [pageError, setPageError] = useState<string | null>(null);
+
+  const [previewRows, setPreviewRows] = useState<HandicapPreviewRow[]>([]);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [syncingOdds, setSyncingOdds] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+
+  const [codeLoadingId, setCodeLoadingId] = useState<string | null>(null);
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [generatedCode, setGeneratedCode] = useState<GeneratedCodeState | null>(null);
+
+  const [scoreSearch, setScoreSearch] = useState("houston");
+  const [scoreSeason, setScoreSeason] = useState("2026");
+  const [scoreResults, setScoreResults] = useState<LiveTournament[]>([]);
+  const [scoreSearchLoading, setScoreSearchLoading] = useState(false);
+  const [scoreSearchError, setScoreSearchError] = useState<string | null>(null);
+  const [selectedScoreTournamentId, setSelectedScoreTournamentId] = useState<string | null>(null);
+  const [selectedScoreTournamentSlug, setSelectedScoreTournamentSlug] = useState("houston-open");
+  const [scoreSyncLoading, setScoreSyncLoading] = useState(false);
+  const [scoreSyncMessage, setScoreSyncMessage] = useState<string | null>(null);
+
+  const poolId = useMemo(() => `${basePoolId}-${selectedTournament}`, [basePoolId, selectedTournament]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAdminState() {
+      setLoadingSession(true);
+      setPageError(null);
+      try {
+        const [entrantsRes, sessionRes] = await Promise.all([
+          fetch(`/api/entrants?pool_id=${encodeURIComponent(poolId)}`),
+          fetch(`/api/auth/me?pool_id=${encodeURIComponent(poolId)}`),
+        ]);
+
+        const entrantsJson = await entrantsRes.json();
+        const sessionJson = await sessionRes.json();
+
+        if (!entrantsRes.ok) throw new Error(entrantsJson?.error ?? "Failed to load entrants");
+        if (!sessionRes.ok) throw new Error(sessionJson?.error ?? "Failed to load session");
+
+        if (!cancelled) {
+          setEntrants((entrantsJson.entrants ?? []) as Entrant[]);
+          setSessionEntrant((sessionJson.entrant ?? null) as Entrant | null);
+        }
+      } catch (e: unknown) {
+        if (!cancelled) {
+          setEntrants([]);
+          setSessionEntrant(null);
+          setPageError(getErrorMessage(e, "Failed to load admin state"));
+        }
+      } finally {
+        if (!cancelled) setLoadingSession(false);
+      }
+    }
+
+    void loadAdminState();
+    return () => {
+      cancelled = true;
+    };
+  }, [poolId]);
+
+  useEffect(() => {
+    setPreviewRows([]);
+    setPreviewError(null);
+    setGeneratedCode(null);
+    setCodeError(null);
+    setScoreSyncMessage(null);
+    setScoreResults([]);
+    setSelectedScoreTournamentId(null);
+  }, [selectedTournament]);
+
+  async function loadHandicapPreview() {
+    setPreviewLoading(true);
+    setPreviewError(null);
+    try {
+      const res = await fetch(`/api/odds/${selectedTournament}/handicaps`);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "Failed to load handicap preview");
+      setPreviewRows((json.handicaps ?? []) as HandicapPreviewRow[]);
+    } catch (e: unknown) {
+      setPreviewError(getErrorMessage(e, "Failed to load handicap preview"));
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
+  async function syncTournamentOdds() {
+    setSyncingOdds(true);
+    setSyncMessage(null);
+    setPreviewError(null);
+    try {
+      const res = await fetch(`/api/odds/${selectedTournament}/sync`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pool_id: poolId }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "Failed to sync tournament odds");
+      setSyncMessage(`Synced ${json.count ?? 0} golfers for ${selectedTournament}.`);
+    } catch (e: unknown) {
+      setPreviewError(getErrorMessage(e, "Failed to sync tournament odds"));
+    } finally {
+      setSyncingOdds(false);
+    }
+  }
+
+  async function generateEntrantCode(entrant: Entrant) {
+    setCodeLoadingId(entrant.entrant_id);
+    setCodeError(null);
+    setGeneratedCode(null);
+    try {
+      const res = await fetch("/api/admin/entrant-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pool_id: poolId,
+          entrant_id: entrant.entrant_id,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "Failed to generate access code");
+
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const inviteLink = `${origin}/?tournament=${encodeURIComponent(selectedTournament)}&entrant=${encodeURIComponent(
+        entrant.entrant_slug
+      )}`;
+
+      setGeneratedCode({
+        entrant_id: entrant.entrant_id,
+        entrant_name: entrant.entrant_name,
+        entrant_slug: entrant.entrant_slug,
+        access_code: json.access_code as string,
+        invite_link: inviteLink,
+      });
+    } catch (e: unknown) {
+      setCodeError(getErrorMessage(e, "Failed to generate access code"));
+    } finally {
+      setCodeLoadingId(null);
+    }
+  }
+
+  async function searchScoreTournaments() {
+    setScoreSearchLoading(true);
+    setScoreSearchError(null);
+    setScoreSyncMessage(null);
+
+    try {
+      const res = await fetch(
+        `/api/slashgolf/schedules?season=${encodeURIComponent(scoreSeason)}&q=${encodeURIComponent(scoreSearch)}`
+      );
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "Failed to load live golf schedules");
+
+      const tournaments = ((json.tournaments ?? []) as Array<{
+        tournId: number;
+        name: string;
+        startDate: string | null;
+        endDate: string | null;
+        status: string | null;
+        venue: string | null;
+      }>).map((tournament) => ({
+        tournament_id: String(tournament.tournId).padStart(3, "0"),
+        name: tournament.name,
+        start_date: tournament.startDate,
+        end_date: tournament.endDate,
+        status: tournament.status,
+        venue: tournament.venue,
+      }));
+
+      setScoreResults(tournaments);
+      setSelectedScoreTournamentId(tournaments[0]?.tournament_id ?? null);
+    } catch (e: unknown) {
+      setScoreSearchError(getErrorMessage(e, "Failed to load live golf schedules"));
+      setScoreResults([]);
+      setSelectedScoreTournamentId(null);
+    } finally {
+      setScoreSearchLoading(false);
+    }
+  }
+
+  async function syncTournamentScores() {
+    if (!selectedScoreTournamentId) return;
+
+    setScoreSyncLoading(true);
+    setScoreSearchError(null);
+    setScoreSyncMessage(null);
+
+    try {
+      const res = await fetch("/api/slashgolf/leaderboard/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pool_id: poolId,
+          tournament_slug: selectedScoreTournamentSlug.trim(),
+          tournament_id: selectedScoreTournamentId,
+          year: scoreSeason,
+          round_par: 70,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "Failed to sync scores");
+      setScoreSyncMessage(`Synced ${json.count ?? 0} round-score rows for tournament ${json.tournament_id}.`);
+    } catch (e: unknown) {
+      setScoreSearchError(getErrorMessage(e, "Failed to sync scores"));
+    } finally {
+      setScoreSyncLoading(false);
+    }
+  }
+
+  return (
+    <main className="space-y-6">
+      <section className="rounded-3xl border border-border bg-surface px-6 py-8">
+        <p className="text-xs uppercase tracking-[0.24em] text-muted">Admin</p>
+        <h1 className="mt-2 text-3xl font-semibold">Commissioner Tools</h1>
+        <p className="mt-2 text-sm text-muted">
+          Use this page for pool setup, player access control, odds sync, and live tournament score imports.
+        </p>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <select
+            value={selectedTournament}
+            onChange={(e) => setSelectedTournament(e.target.value as TournamentOption["slug"])}
+            className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
+          >
+            {TOURNAMENTS.map((tournament) => (
+              <option key={tournament.slug} value={tournament.slug}>
+                {tournament.label}
+              </option>
+            ))}
+          </select>
+          <div className="text-xs text-muted">Pool: {poolId}</div>
+          {sessionEntrant && (
+            <div className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs text-accent">
+              Signed in as {sessionEntrant.entrant_name}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {loadingSession && (
+        <section className="rounded-2xl border border-border bg-surface p-4 text-sm text-muted">
+          Loading admin tools...
+        </section>
+      )}
+
+      {pageError && (
+        <section className="rounded-2xl border border-danger/40 bg-surface p-4 text-sm text-danger">
+          {pageError}
+        </section>
+      )}
+
+      {!loadingSession && !pageError && (!sessionEntrant || !sessionEntrant.is_admin) && (
+        <section className="rounded-2xl border border-border bg-surface p-5">
+          <h2 className="text-sm font-semibold">Admin Access Required</h2>
+          <p className="mt-2 text-sm text-muted">
+            Sign in on the Draft page with an admin entrant to use this tab.
+          </p>
+        </section>
+      )}
+
+      {!loadingSession && !pageError && sessionEntrant?.is_admin && (
+        <>
+          <section className="grid gap-4 xl:grid-cols-[1.05fr,0.95fr]">
+            <div className="rounded-2xl border border-border bg-surface p-5">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold">Odds And Handicap Sync</h2>
+                  <p className="mt-1 text-xs text-muted">
+                    Use this before the draft starts. Preview the model, then sync golfers and handicaps into the pool.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={() => void loadHandicapPreview()}
+                    disabled={previewLoading}
+                    className={[
+                      "rounded-lg px-3 py-2 text-sm font-semibold sm:min-w-[160px]",
+                      previewLoading ? "bg-border text-muted" : "border border-border bg-bg text-text",
+                    ].join(" ")}
+                  >
+                    {previewLoading ? "Loading preview..." : "Preview Handicaps"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void syncTournamentOdds()}
+                    disabled={syncingOdds}
+                    className={[
+                      "rounded-lg px-3 py-2 text-sm font-semibold sm:min-w-[180px]",
+                      syncingOdds ? "bg-border text-muted" : "bg-accent text-black",
+                    ].join(" ")}
+                  >
+                    {syncingOdds ? "Syncing odds..." : "Sync Odds + Handicaps"}
+                  </button>
+                </div>
+              </div>
+              {syncMessage && <div className="mt-3 text-xs text-accent">{syncMessage}</div>}
+              {previewError && <div className="mt-3 text-xs text-danger">{previewError}</div>}
+
+              {previewRows.length === 0 && !previewLoading ? (
+                <div className="mt-4 rounded-xl border border-border/70 bg-bg/40 p-4 text-sm text-muted">
+                  No preview loaded yet. Use this when you want to sanity-check odds-derived handicaps before they go live.
+                </div>
+              ) : (
+                previewRows.length > 0 && (
+                  <div className="mt-4 overflow-auto rounded-xl border border-border/70">
+                    <table className="w-full min-w-[860px] text-sm">
+                      <thead className="border-b border-border text-xs uppercase tracking-wide text-muted">
+                        <tr>
+                          <th className="px-3 py-3 text-left">Rank</th>
+                          <th className="px-3 py-3 text-left">Golfer</th>
+                          <th className="px-3 py-3 text-right">Odds</th>
+                          <th className="px-3 py-3 text-right">Implied Prob</th>
+                          <th className="px-3 py-3 text-right">Norm Prob</th>
+                          <th className="px-3 py-3 text-right">Handicap</th>
+                          <th className="px-3 py-3 text-left">Book</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/70">
+                        {previewRows.map((row) => (
+                          <tr key={row.golfer}>
+                            <td className="px-3 py-3">{row.rank}</td>
+                            <td className="px-3 py-3 font-medium">{row.golfer}</td>
+                            <td className="px-3 py-3 text-right">
+                              {row.best_odds > 0 ? `+${row.best_odds}` : row.best_odds}
+                            </td>
+                            <td className="px-3 py-3 text-right">{(row.implied_probability * 100).toFixed(2)}%</td>
+                            <td className="px-3 py-3 text-right">{(row.normalized_probability * 100).toFixed(2)}%</td>
+                            <td className="px-3 py-3 text-right font-semibold">-{row.handicap}</td>
+                            <td className="px-3 py-3">{row.sportsbook}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-border bg-surface p-5">
+              <h2 className="text-sm font-semibold">Entrant Access</h2>
+              <p className="mt-1 text-xs text-muted">
+                Use this when inviting players or rotating access codes. Generate a code, then send the invite link and code together.
+              </p>
+
+              {codeError && <div className="mt-3 text-xs text-danger">{codeError}</div>}
+              {generatedCode && (
+                <div className="mt-4 rounded-xl border border-accent/40 bg-accent/10 p-4">
+                  <div className="text-sm font-semibold">Access code ready for {generatedCode.entrant_name}</div>
+                  <div className="mt-2 text-sm">
+                    Code: <span className="font-mono font-semibold">{generatedCode.access_code}</span>
+                  </div>
+                  <div className="mt-2 break-all text-xs text-muted">Invite link: {generatedCode.invite_link}</div>
+                  <div className="mt-2 text-xs text-muted">
+                    Use this when a player is joining for the first time or if you need to reset their access.
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-4 overflow-auto rounded-xl border border-border/70">
+                <table className="w-full min-w-[540px] text-sm">
+                  <thead className="border-b border-border text-xs uppercase tracking-wide text-muted">
+                    <tr>
+                      <th className="px-3 py-3 text-left">Entrant</th>
+                      <th className="px-3 py-3 text-left">Slug</th>
+                      <th className="px-3 py-3 text-left">Role</th>
+                      <th className="px-3 py-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/70">
+                    {entrants.map((entrant) => (
+                      <tr key={entrant.entrant_id}>
+                        <td className="px-3 py-3 font-medium">{entrant.entrant_name}</td>
+                        <td className="px-3 py-3 text-xs text-muted">{entrant.entrant_slug}</td>
+                        <td className="px-3 py-3 text-xs">
+                          {entrant.is_admin ? <span className="text-accent">Admin</span> : <span className="text-muted">Player</span>}
+                        </td>
+                        <td className="px-3 py-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => void generateEntrantCode(entrant)}
+                            disabled={codeLoadingId === entrant.entrant_id}
+                            className={[
+                              "rounded-lg px-3 py-1.5 text-xs font-semibold",
+                              codeLoadingId === entrant.entrant_id
+                                ? "bg-border text-muted"
+                                : "border border-border bg-bg text-text",
+                            ].join(" ")}
+                          >
+                            {codeLoadingId === entrant.entrant_id ? "Generating..." : "Generate / Reset Code"}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-border bg-surface p-5">
+            <h2 className="text-sm font-semibold">Tournament Score Sync</h2>
+            <p className="mt-1 text-xs text-muted">
+              Use this during live events or after a round finishes. Search the schedule, select the tournament, and sync leaderboard scores into the app.
+            </p>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-[120px,1fr,160px,auto]">
+              <input
+                value={scoreSeason}
+                onChange={(e) => setScoreSeason(e.target.value)}
+                placeholder="Season"
+                className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
+              />
+              <input
+                value={scoreSearch}
+                onChange={(e) => setScoreSearch(e.target.value)}
+                placeholder="Search tournament..."
+                className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
+              />
+              <input
+                value={selectedScoreTournamentSlug}
+                onChange={(e) => setSelectedScoreTournamentSlug(e.target.value)}
+                placeholder="tournament-slug"
+                className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => void searchScoreTournaments()}
+                disabled={scoreSearchLoading}
+                className={[
+                  "rounded-lg px-4 py-2 text-sm font-semibold",
+                  scoreSearchLoading ? "bg-border text-muted" : "border border-border bg-bg text-text",
+                ].join(" ")}
+              >
+                {scoreSearchLoading ? "Searching..." : "Search"}
+              </button>
+            </div>
+
+            {scoreSearchError && <div className="mt-3 text-xs text-danger">{scoreSearchError}</div>}
+            {scoreSyncMessage && <div className="mt-3 text-xs text-accent">{scoreSyncMessage}</div>}
+
+            {scoreResults.length > 0 && (
+              <div className="mt-4 rounded-xl border border-border/70 bg-bg/40 p-3">
+                <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">Search Results</div>
+                <div className="space-y-2">
+                  {scoreResults.map((tournament) => {
+                    const selected = selectedScoreTournamentId === tournament.tournament_id;
+                    return (
+                      <label
+                        key={tournament.tournament_id}
+                        className={[
+                          "flex cursor-pointer items-start justify-between gap-3 rounded-lg border px-3 py-3",
+                          selected ? "border-accent bg-accent/10" : "border-border/70 bg-surface",
+                        ].join(" ")}
+                      >
+                        <div className="flex gap-3">
+                          <input
+                            type="radio"
+                            name="score-tournament"
+                            checked={selected}
+                            onChange={() => setSelectedScoreTournamentId(tournament.tournament_id)}
+                            className="mt-1"
+                          />
+                          <div>
+                            <div className="text-sm font-semibold">{tournament.name}</div>
+                            <div className="mt-1 text-xs text-muted">
+                              {tournament.start_date?.slice(0, 10) ?? "?"} to {tournament.end_date?.slice(0, 10) ?? "?"}
+                            </div>
+                            <div className="mt-1 text-xs text-muted">
+                              {tournament.venue ?? "Unknown venue"}{tournament.status ? ` | ${tournament.status}` : ""}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-xs text-muted">TournId {tournament.tournament_id}</div>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => void syncTournamentScores()}
+                    disabled={!selectedScoreTournamentId || scoreSyncLoading}
+                    className={[
+                      "rounded-lg px-4 py-2 text-sm font-semibold sm:min-w-[140px]",
+                      !selectedScoreTournamentId || scoreSyncLoading ? "bg-border text-muted" : "bg-accent text-black",
+                    ].join(" ")}
+                  >
+                    {scoreSyncLoading ? "Syncing scores..." : "Sync Scores"}
+                  </button>
+                  <div className="text-xs text-muted">
+                    Selected tournament id: {selectedScoreTournamentId ?? "none"}
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+        </>
+      )}
+    </main>
+  );
+}

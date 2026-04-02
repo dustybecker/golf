@@ -1,0 +1,156 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+    --font-body:
+      Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-display:
+      Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --color-bg: 244 245 249;
+    --color-surface: 249 250 253;
+    --color-border: 225 228 238;
+    --color-accent: 110 93 255;
+    --color-info: 24 28 49;
+    --color-text: 40 44 62;
+    --color-muted: 105 111 137;
+    --color-danger: 201 77 77;
+    --shell-top: 245 246 250;
+    --shell-bottom: 236 239 247;
+    --panel-top: 251 252 255;
+    --panel-bottom: 245 247 252;
+    --grid-line: 99 91 255;
+  }
+
+  html[data-theme="dark"] {
+    color-scheme: dark;
+    --color-bg: 12 13 18;
+    --color-surface: 17 18 24;
+    --color-border: 41 42 56;
+    --color-accent: 125 104 255;
+    --color-info: 239 241 252;
+    --color-text: 234 236 247;
+    --color-muted: 147 151 174;
+    --color-danger: 228 117 117;
+    --shell-top: 13 14 19;
+    --shell-bottom: 9 10 14;
+    --panel-top: 20 21 29;
+    --panel-bottom: 16 17 24;
+    --grid-line: 125 104 255;
+  }
+
+  * {
+    border-color: rgb(var(--color-border) / 0.38);
+  }
+
+  html {
+    min-height: 100%;
+  }
+
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at 16% -8%, rgb(var(--color-accent) / 0.08), transparent 28%),
+      radial-gradient(circle at 88% 0%, rgb(var(--color-accent) / 0.06), transparent 24%),
+      linear-gradient(180deg, rgb(var(--shell-top) / 1) 0%, rgb(var(--shell-bottom) / 1) 100%);
+    color: rgb(var(--color-text) / 1);
+    font-family: var(--font-body), sans-serif;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-display), sans-serif;
+    letter-spacing: -0.03em;
+  }
+
+  ::selection {
+    background: rgb(var(--color-accent) / 0.35);
+    color: rgb(var(--color-text) / 1);
+  }
+}
+
+@layer components {
+  .page-shell {
+    position: relative;
+  }
+
+  .page-shell::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 14% 10%, rgb(var(--color-accent) / 0.12), transparent 24%),
+      radial-gradient(circle at 84% 16%, rgb(var(--color-accent) / 0.08), transparent 22%),
+      radial-gradient(circle at 50% 100%, rgb(var(--color-accent) / 0.05), transparent 28%);
+    filter: blur(28px);
+    opacity: 0.9;
+  }
+
+  .panel-chrome {
+    background: linear-gradient(180deg, rgb(var(--panel-top) / 0.88), rgb(var(--panel-bottom) / 0.78));
+    backdrop-filter: blur(18px);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.18),
+      0 18px 44px rgb(15 23 42 / 0.05);
+  }
+
+  .hero-panel {
+    position: relative;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 16% 10%, rgb(var(--color-accent) / 0.18), transparent 24%),
+      radial-gradient(circle at 84% 16%, rgb(var(--color-accent) / 0.12), transparent 20%),
+      linear-gradient(180deg, rgb(var(--panel-top) / 0.88), rgb(var(--panel-bottom) / 0.72));
+    backdrop-filter: blur(18px);
+  }
+
+  html[data-theme="dark"] .hero-panel {
+    background:
+      radial-gradient(circle at 18% 6%, rgb(var(--color-accent) / 0.24), transparent 28%),
+      radial-gradient(circle at 84% 18%, rgb(var(--color-accent) / 0.14), transparent 22%),
+      linear-gradient(180deg, rgb(var(--panel-top) / 0.88), rgb(var(--panel-bottom) / 0.72));
+  }
+
+  .soft-card {
+    border-color: rgb(var(--color-border) / 0.24);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.1),
+      0 12px 30px rgb(15 23 42 / 0.035);
+  }
+
+  .soft-subtle {
+    border-color: rgb(var(--color-border) / 0.18);
+    background: rgb(var(--color-surface) / 0.52);
+    backdrop-filter: blur(14px);
+  }
+
+  .glass-input {
+    border-color: rgb(var(--color-border) / 0.24);
+    background: rgb(var(--color-bg) / 0.46);
+    backdrop-filter: blur(14px);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08);
+  }
+
+  html[data-theme="dark"] .panel-chrome,
+  html[data-theme="dark"] .hero-panel,
+  html[data-theme="dark"] .soft-card {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.03),
+      0 16px 42px rgb(0 0 0 / 0.22);
+  }
+
+  html[data-theme="dark"] .soft-subtle,
+  html[data-theme="dark"] .glass-input {
+    background: rgb(var(--color-surface) / 0.46);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.03);
+  }
+}

@@ -1,0 +1,96 @@
+[
+  {
+    "album": "For Emma, Forever Ago",
+    "art": "/bon-iver/for-emma-forever-ago.jpg",
+    "tracks": [
+      { "id": "for-emma-forever-ago-flume", "trackNumber": 1, "title": "Flume" },
+      { "id": "for-emma-forever-ago-lump-sum", "trackNumber": 2, "title": "Lump Sum" },
+      { "id": "for-emma-forever-ago-skinny-love", "trackNumber": 3, "title": "Skinny Love" },
+      { "id": "for-emma-forever-ago-the-wolves-act-i-and-ii", "trackNumber": 4, "title": "The Wolves (Act I and II)" },
+      { "id": "for-emma-forever-ago-blindsided", "trackNumber": 5, "title": "Blindsided" },
+      { "id": "for-emma-forever-ago-creature-fear", "trackNumber": 6, "title": "Creature Fear" },
+      { "id": "for-emma-forever-ago-team", "trackNumber": 7, "title": "Team" },
+      { "id": "for-emma-forever-ago-for-emma", "trackNumber": 8, "title": "For Emma" },
+      { "id": "for-emma-forever-ago-re-stacks", "trackNumber": 9, "title": "re: Stacks" }
+    ]
+  },
+  {
+    "album": "Blood Bank",
+    "art": "/bon-iver/blood-bank.png",
+    "tracks": [
+      { "id": "blood-bank-blood-bank", "trackNumber": 1, "title": "Blood Bank" },
+      { "id": "blood-bank-beach-baby", "trackNumber": 2, "title": "Beach Baby" },
+      { "id": "blood-bank-babys", "trackNumber": 3, "title": "Babys" },
+      { "id": "blood-bank-woods", "trackNumber": 4, "title": "Woods" }
+    ]
+  },
+  {
+    "album": "Bon Iver, Bon Iver",
+    "art": "/bon-iver/bon-iver-bon-iver.jpg",
+    "tracks": [
+      { "id": "bon-iver-bon-iver-perth", "trackNumber": 1, "title": "Perth" },
+      { "id": "bon-iver-bon-iver-minnesota-wi", "trackNumber": 2, "title": "Minnesota, WI" },
+      { "id": "bon-iver-bon-iver-holocene", "trackNumber": 3, "title": "Holocene" },
+      { "id": "bon-iver-bon-iver-towers", "trackNumber": 4, "title": "Towers" },
+      { "id": "bon-iver-bon-iver-michicant", "trackNumber": 5, "title": "Michicant" },
+      { "id": "bon-iver-bon-iver-hinnom-tx", "trackNumber": 6, "title": "Hinnom, TX" },
+      { "id": "bon-iver-bon-iver-wash", "trackNumber": 7, "title": "Wash." },
+      { "id": "bon-iver-bon-iver-calgary", "trackNumber": 8, "title": "Calgary" },
+      { "id": "bon-iver-bon-iver-lisbon-oh", "trackNumber": 9, "title": "Lisbon, OH" },
+      { "id": "bon-iver-bon-iver-beth-rest", "trackNumber": 10, "title": "Beth/Rest" }
+    ]
+  },
+  {
+    "album": "22, A Million",
+    "art": "/bon-iver/22-a-million.jpg",
+    "tracks": [
+      { "id": "22-a-million-22-over-soon", "trackNumber": 1, "title": "22 (OVER S∞∞N)" },
+      { "id": "22-a-million-10-deathbreast", "trackNumber": 2, "title": "10 d E A T h b R E a s T ⚄ ⚄" },
+      { "id": "22-a-million-715-creeks", "trackNumber": 3, "title": "715 - CRΣΣKS" },
+      { "id": "22-a-million-33-god", "trackNumber": 4, "title": "33 \"GOD\"" },
+      { "id": "22-a-million-29-strafford-apts", "trackNumber": 5, "title": "29 #Strafford APTS" },
+      { "id": "22-a-million-666-t", "trackNumber": 6, "title": "666 ʇ" },
+      { "id": "22-a-million-21-moon-water", "trackNumber": 7, "title": "21 M◊◊N WATER" },
+      { "id": "22-a-million-8-circle", "trackNumber": 8, "title": "8 (circle)" },
+      { "id": "22-a-million-45", "trackNumber": 9, "title": "____45_____" },
+      { "id": "22-a-million-00000-million", "trackNumber": 10, "title": "00000 Million" }
+    ]
+  },
+  {
+    "album": "i,i",
+    "art": "/bon-iver/i-i.png",
+    "tracks": [
+      { "id": "i-i-yi", "trackNumber": 1, "title": "Yi" },
+      { "id": "i-i-imi", "trackNumber": 2, "title": "iMi" },
+      { "id": "i-i-we", "trackNumber": 3, "title": "We" },
+      { "id": "i-i-holyfields", "trackNumber": 4, "title": "Holyfields," },
+      { "id": "i-i-hey-ma", "trackNumber": 5, "title": "Hey, Ma" },
+      { "id": "i-i-u-man-like", "trackNumber": 6, "title": "U (Man Like)" },
+      { "id": "i-i-naeem", "trackNumber": 7, "title": "Naeem" },
+      { "id": "i-i-jelmore", "trackNumber": 8, "title": "Jelmore" },
+      { "id": "i-i-faith", "trackNumber": 9, "title": "Faith" },
+      { "id": "i-i-marion", "trackNumber": 10, "title": "Marion" },
+      { "id": "i-i-salem", "trackNumber": 11, "title": "Salem" },
+      { "id": "i-i-shdiah", "trackNumber": 12, "title": "Sh'Diah" },
+      { "id": "i-i-rabi", "trackNumber": 13, "title": "RABi" }
+    ]
+  },
+  {
+    "album": "SABLE, fABLE",
+    "art": "/bon-iver/sable-fable.jpg",
+    "tracks": [
+      { "id": "sable-fable-things-behind-things-behind-things", "trackNumber": 1, "title": "THINGS BEHIND THINGS BEHIND THINGS" },
+      { "id": "sable-fable-speyside", "trackNumber": 2, "title": "S P E Y S I D E" },
+      { "id": "sable-fable-awards-season", "trackNumber": 3, "title": "AWARDS SEASON" },
+      { "id": "sable-fable-short-story", "trackNumber": 4, "title": "Short Story" },
+      { "id": "sable-fable-everything-is-peaceful-love", "trackNumber": 5, "title": "Everything Is Peaceful Love" },
+      { "id": "sable-fable-walk-home", "trackNumber": 6, "title": "Walk Home" },
+      { "id": "sable-fable-day-one", "trackNumber": 7, "title": "Day One (feat. Dijon and Flock of Dimes)" },
+      { "id": "sable-fable-from", "trackNumber": 8, "title": "From" },
+      { "id": "sable-fable-ill-be-there", "trackNumber": 9, "title": "I'll Be There" },
+      { "id": "sable-fable-if-only-i-could-wait", "trackNumber": 10, "title": "If Only I Could Wait (feat. Danielle Haim)" },
+      { "id": "sable-fable-theres-a-rhythmn", "trackNumber": 11, "title": "There's A Rhythmn" },
+      { "id": "sable-fable-au-revoir", "trackNumber": 12, "title": "Au Revoir" }
+    ]
+  }
+]
