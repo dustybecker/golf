@@ -67,9 +67,16 @@ export async function POST(
     handicap: row.handicap,
   }));
 
-  const { error } = await supabaseAdmin
+  const { error: deleteError } = await supabaseAdmin
     .from("golfers")
-    .upsert(rows, { onConflict: "pool_id,golfer" });
+    .delete()
+    .eq("pool_id", poolId);
+
+  if (deleteError) {
+    return NextResponse.json({ error: deleteError.message }, { status: 500 });
+  }
+
+  const { error } = await supabaseAdmin.from("golfers").insert(rows);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
