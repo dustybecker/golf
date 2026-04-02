@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedEntrant } from "@/lib/draftAuth";
+import { getDraftOpenState } from "@/lib/draftState";
 import { getErrorMessage } from "@/lib/error";
 import { supabaseAdmin } from "@/lib/supabase";
 
@@ -23,6 +24,11 @@ export async function POST(req: Request) {
     }
     if (!session.entrant.is_admin) {
       return NextResponse.json({ error: "Admin access required." }, { status: 403 });
+    }
+
+    const draftOpen = await getDraftOpenState(poolId);
+    if (!draftOpen) {
+      return NextResponse.json({ error: "Draft is currently locked." }, { status: 423 });
     }
 
     const { error } = await supabaseAdmin

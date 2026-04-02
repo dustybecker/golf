@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedEntrant } from "@/lib/draftAuth";
+import { getDraftOpenState } from "@/lib/draftState";
 import { getErrorMessage } from "@/lib/error";
 import { supabaseAdmin } from "@/lib/supabase";
 
@@ -27,6 +28,11 @@ export async function POST(req: Request) {
     const session = await getAuthenticatedEntrant(poolId);
     if (!session) {
       return NextResponse.json({ error: "Not authenticated for this pool." }, { status: 401 });
+    }
+
+    const draftOpen = await getDraftOpenState(poolId);
+    if (!draftOpen) {
+      return NextResponse.json({ error: "Draft is currently locked." }, { status: 423 });
     }
 
     const { error: deleteError } = await supabaseAdmin

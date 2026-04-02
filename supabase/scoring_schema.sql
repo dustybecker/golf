@@ -3,6 +3,7 @@ create table if not exists public.tournament_meta (
   tournament_slug text not null,
   round_count integer not null default 4 check (round_count between 1 and 4),
   round_par numeric not null default 72,
+  draft_open boolean not null default false,
   primary key (pool_id, tournament_slug)
 );
 
@@ -22,10 +23,10 @@ create table if not exists public.tournament_round_scores (
 create index if not exists tournament_round_scores_lookup_idx
   on public.tournament_round_scores (pool_id, tournament_slug, round_number, golfer);
 
-insert into public.tournament_meta (pool_id, tournament_slug, round_count, round_par)
+insert into public.tournament_meta (pool_id, tournament_slug, round_count, round_par, draft_open)
 values
-  ('2026-majors-masters', 'masters', 4, 72),
-  ('2026-majors-pga-championship', 'pga-championship', 4, 72),
-  ('2026-majors-us-open', 'us-open', 4, 72),
-  ('2026-majors-the-open', 'the-open', 4, 72)
+  ('2026-majors-masters', 'masters', 4, 72, false),
+  ('2026-majors-pga-championship', 'pga-championship', 4, 72, false),
+  ('2026-majors-us-open', 'us-open', 4, 72, false),
+  ('2026-majors-the-open', 'the-open', 4, 72, false)
 on conflict (pool_id, tournament_slug) do nothing;

@@ -6,6 +6,7 @@ type TournamentMetaRow = {
   tournament_slug: string;
   round_count: number | null;
   round_par: number | null;
+  draft_open: boolean | null;
 };
 
 function labelFromSlug(slug: string) {
@@ -26,7 +27,7 @@ export async function GET(req: Request) {
   try {
     const { data, error } = await supabaseAdmin
       .from("tournament_meta")
-      .select("tournament_slug, round_count, round_par")
+      .select("tournament_slug, round_count, round_par, draft_open")
       .eq("pool_id", poolId)
       .order("tournament_slug", { ascending: true });
 
@@ -39,6 +40,7 @@ export async function GET(req: Request) {
       label: labelFromSlug(row.tournament_slug),
       round_count: row.round_count ?? 4,
       round_par: row.round_par ?? 72,
+      draft_open: row.draft_open ?? false,
     }));
 
     return NextResponse.json({ ok: true, poolId, rows });

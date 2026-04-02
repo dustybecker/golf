@@ -24,11 +24,11 @@ type TournamentMetaOption = {
   tournament_slug: string;
   label: string;
   round_par?: number;
+  draft_open?: boolean;
 };
 
 export default function TournamentLeaderboardPage() {
   const basePoolId = process.env.NEXT_PUBLIC_POOL_ID || "2026-majors";
-  const refreshTick = useAutoRefreshValue(30000);
   const [selectedTournament, setSelectedTournament] = useState("masters");
   const [selectedPoolId, setSelectedPoolId] = useState(`${basePoolId}-masters`);
   const [availableTournaments, setAvailableTournaments] = useState<TournamentMetaOption[]>(
@@ -44,6 +44,8 @@ export default function TournamentLeaderboardPage() {
   const selectedTournamentMeta = availableTournaments.find(
     (item) => item.tournament_slug === selectedTournament
   );
+  const draftOpen = selectedTournamentMeta?.draft_open ?? false;
+  const refreshTick = useAutoRefreshValue(30000, draftOpen);
 
   function formatToPar(grossTotal: number, roundsPlayed: number) {
     const roundPar = selectedTournamentMeta?.round_par ?? 72;
@@ -140,7 +142,11 @@ export default function TournamentLeaderboardPage() {
           <div className="text-xs text-muted">Pool: {poolId}</div>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted">
-          <span>Tournament scores refresh automatically every 30 seconds while this tab is open.</span>
+          <span>
+            {draftOpen
+              ? "Tournament scores refresh automatically every 30 seconds while this tab is open."
+              : "Draft is locked. Auto-refresh is paused until the draft is opened from Admin."}
+          </span>
           <span>Last updated: {formatLastUpdated(lastUpdated)}</span>
         </div>
       </section>

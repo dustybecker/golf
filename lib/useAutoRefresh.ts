@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 
-export function useAutoRefreshValue(intervalMs: number) {
+export function useAutoRefreshValue(intervalMs: number, enabled = true) {
   const [refreshTick, setRefreshTick] = useState(0);
 
   useEffect(() => {
-    if (intervalMs <= 0) return;
+    if (!enabled || intervalMs <= 0) return;
 
     const intervalId = window.setInterval(() => {
       if (document.visibilityState !== "visible") return;
@@ -16,7 +16,7 @@ export function useAutoRefreshValue(intervalMs: number) {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [intervalMs]);
+  }, [enabled, intervalMs]);
 
   return refreshTick;
 }

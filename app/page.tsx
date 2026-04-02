@@ -59,6 +59,7 @@ type TournamentMetaOption = {
   tournament_slug: string;
   label: string;
   round_par?: number;
+  draft_open?: boolean;
 };
 
 const TOURNAMENTS: TournamentOption[] = [
@@ -76,7 +77,6 @@ function formatToPar(value: number) {
 function HomePageContent() {
   const searchParams = useSearchParams();
   const basePoolId = process.env.NEXT_PUBLIC_POOL_ID || "2026-majors";
-  const refreshTick = useAutoRefreshValue(30000);
   const [selectedTournament, setSelectedTournament] = useState<TournamentOption["slug"]>("masters");
   const [loginSlug, setLoginSlug] = useState("");
   const [accessCode, setAccessCode] = useState("");
@@ -103,6 +103,8 @@ function HomePageContent() {
   const selectedTournamentMeta = availableTournaments.find(
     (item) => item.tournament_slug === selectedTournament
   );
+  const draftOpen = selectedTournamentMeta?.draft_open ?? false;
+  const refreshTick = useAutoRefreshValue(30000, draftOpen);
 
   function golferToPar(golfer: ScoringGolfer) {
     const roundPar = selectedTournamentMeta?.round_par ?? 72;
@@ -328,9 +330,11 @@ function HomePageContent() {
                   </div>
                 </div>
               </div>
-              <div className="border-t border-border/20 pt-4 text-xs text-muted">
-                Home snapshots refresh automatically every 30 seconds while this tab is open.
-              </div>
+                <div className="border-t border-border/20 pt-4 text-xs text-muted">
+                  {draftOpen
+                    ? "Home snapshots refresh automatically every 30 seconds while this tab is open."
+                    : "Draft is locked. Auto-refresh is paused on the live pages until the draft is opened from Admin."}
+                </div>
               <div className="text-xs text-muted">Last updated: {formatLastUpdated(lastUpdated)}</div>
             </div>
           </div>

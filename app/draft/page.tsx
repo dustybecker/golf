@@ -31,6 +31,12 @@ type Entrant = {
   is_admin: boolean;
 };
 
+type TournamentMetaRow = {
+  tournament_slug: string;
+  label: string;
+  draft_open?: boolean;
+};
+
 const TOURNAMENTS: TournamentOption[] = [
   { slug: "masters", label: "The Masters" },
   { slug: "pga-championship", label: "PGA Championship" },
@@ -69,9 +75,10 @@ function normalizePicks(rows: DraftPickRow[], entrantNames: string[]) {
 function DraftPageContent() {
   const searchParams = useSearchParams();
   const basePoolId = process.env.NEXT_PUBLIC_POOL_ID || "2026-majors";
-  const refreshTick = useAutoRefreshValue(15000);
   const [selectedTournament, setSelectedTournament] = useState<TournamentOption["slug"]>("masters");
   const [query, setQuery] = useState("");
+  const [draftOpen, setDraftOpen] = useState(false);
+  const refreshTick = useAutoRefreshValue(15000, draftOpen);
 
   const [entrants, setEntrants] = useState<Entrant[]>([]);
   const [entrantsLoading, setEntrantsLoading] = useState(true);
@@ -102,6 +109,31 @@ function DraftPageContent() {
       setSelectedTournament(tournamentParam as TournamentOption["slug"]);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDraftState() {
+      try {
+        const res = await fetch(`/api/tournament-meta?pool_id=${encodeURIComponent(poolId)}`);
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.error ?? "Failed to load draft state");
+        const rows = (json.rows ?? []) as TournamentMetaRow[];
+        if (!cancelled) {
+          setDraftOpen(
+            rows.find((row) => row.tournament_slug === selectedTournament)?.draft_open ?? false
+          );
+        }
+      } catch {
+        if (!cancelled) setDraftOpen(false);
+      }
+    }
+
+    void loadDraftState();
+    return () => {
+      cancelled = true;
+    };
+  }, [poolId, selectedTournament]);
 
   useEffect(() => {
     let cancelled = false;
@@ -370,10 +402,20 @@ function DraftPageContent() {
           </div>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted">
-          <span>Board refreshes automatically every 15 seconds while this tab is open.</span>
+          <span>
+            {draftOpen
+              ? "Board refreshes automatically every 15 seconds while this tab is open."
+              : "Draft is locked. Auto-refresh is paused until an admin opens the board."}
+          </span>
           <span>Last updated: {formatLastUpdated(lastUpdated)}</span>
         </div>
       </section>
+
+      {!draftOpen && (
+        <section className="rounded-2xl border border-border bg-surface p-5 text-sm text-muted">
+          Draft is currently locked. Players will be able to make picks once an admin opens the draft from the Admin page.
+        </section>
+      )}
 
       {!sessionEntrant && (
         <section className="rounded-2xl border border-border bg-surface p-5 text-sm text-muted">
@@ -395,7 +437,13 @@ function DraftPageContent() {
               Picks: <span className="font-semibold text-text">{activePicks.length}</span> / {MAX_PICKS_PER_ENTRANT}
             </div>
             <div className="mt-2 text-xs text-muted">
-              {savingPicks ? "Saving..." : loadingPicks ? "Loading picks..." : "Synced"}
+              {savingPicks
+                ? "Saving..."
+                : loadingPicks
+                  ? "Loading picks..."
+                  : draftOpen
+                    ? "Synced"
+                    : "Locked"}
             </div>
             {picksError && <div className="mt-1 text-xs text-danger">{picksError}</div>}
             {entrantsLoading && <div className="mt-1 text-xs text-muted">Loading entrants...</div>}
@@ -424,7 +472,8 @@ function DraftPageContent() {
                       <button
                         type="button"
                         onClick={() => void removePick(golfer)}
-                        className="text-xs text-danger"
+                        disabled={!draftOpen}
+                        className={["text-xs", draftOpen ? "text-danger" : "text-muted"].join(" ")}
                       >
                         Remove
                       </button>
@@ -439,6 +488,7 @@ function DraftPageContent() {
             <button
               type="button"
               onClick={() => void clearDraftBoard()}
+              disabled={!draftOpen}
               className="w-full rounded-lg border border-danger/50 bg-danger/10 px-3 py-2 text-sm font-semibold text-danger"
             >
               Reset Draft Board
@@ -455,6 +505,9 @@ function DraftPageContent() {
               </div>
               {loadingGolfers && <div className="text-xs text-muted">Loading golfers from Supabase...</div>}
               {golfersError && <div className="text-xs text-danger">Supabase load failed; using fallback list.</div>}
+              {!draftOpen && (
+                <div className="text-xs text-muted">Draft actions are disabled while the board is locked.</div>
+              )}
             </div>
             <input
               value={query}
@@ -485,7 +538,7 @@ function DraftPageContent() {
                       (picksByEntrant[entrantName] ?? []).includes(golfer.golfer)
                     ) ??
                     null;
-                  const canPick = Boolean(sessionEntrant) && !picked && !activeIsFull && !savingPicks;
+                  const canPick = Boolean(sessionEntrant) && draftOpen && !picked && !activeIsFull && !savingPicks;
 
                   return (
                     <tr key={golfer.id}>
@@ -509,7 +562,7 @@ function DraftPageContent() {
                             canPick ? "bg-accent text-black" : "bg-border text-muted",
                           ].join(" ")}
                         >
-                          {!sessionEntrant ? "Sign in" : picked ? "Locked" : "Draft"}
+                          {!sessionEntrant ? "Sign in" : picked ? "Locked" : draftOpen ? "Draft" : "Locked"}
                         </button>
                       </td>
                     </tr>

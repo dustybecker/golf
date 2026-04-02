@@ -43,6 +43,14 @@ type LiveTournament = {
   venue: string | null;
 };
 
+type TournamentMetaRow = {
+  tournament_slug: string;
+  label: string;
+  round_count?: number;
+  round_par?: number;
+  draft_open?: boolean;
+};
+
 const TOURNAMENTS: TournamentOption[] = [
   { slug: "masters", label: "The Masters" },
   { slug: "pga-championship", label: "PGA Championship" },
@@ -77,6 +85,10 @@ export default function AdminPage() {
   const [selectedScoreTournamentSlug, setSelectedScoreTournamentSlug] = useState("houston-open");
   const [scoreSyncLoading, setScoreSyncLoading] = useState(false);
   const [scoreSyncMessage, setScoreSyncMessage] = useState<string | null>(null);
+  const [draftOpen, setDraftOpen] = useState(false);
+  const [draftStateLoading, setDraftStateLoading] = useState(false);
+  const [draftStateMessage, setDraftStateMessage] = useState<string | null>(null);
+  const [draftStateError, setDraftStateError] = useState<string | null>(null);
 
   const poolId = useMemo(() => `${basePoolId}-${selectedTournament}`, [basePoolId, selectedTournament]);
 
@@ -87,25 +99,33 @@ export default function AdminPage() {
       setLoadingSession(true);
       setPageError(null);
       try {
-        const [entrantsRes, sessionRes] = await Promise.all([
+        const [entrantsRes, sessionRes, metaRes] = await Promise.all([
           fetch(`/api/entrants?pool_id=${encodeURIComponent(poolId)}`),
           fetch(`/api/auth/me?pool_id=${encodeURIComponent(poolId)}`),
+          fetch(`/api/tournament-meta?pool_id=${encodeURIComponent(poolId)}`),
         ]);
 
         const entrantsJson = await entrantsRes.json();
         const sessionJson = await sessionRes.json();
+        const metaJson = await metaRes.json();
 
         if (!entrantsRes.ok) throw new Error(entrantsJson?.error ?? "Failed to load entrants");
         if (!sessionRes.ok) throw new Error(sessionJson?.error ?? "Failed to load session");
+        if (!metaRes.ok) throw new Error(metaJson?.error ?? "Failed to load draft state");
 
         if (!cancelled) {
           setEntrants((entrantsJson.entrants ?? []) as Entrant[]);
           setSessionEntrant((sessionJson.entrant ?? null) as Entrant | null);
+          const metaRows = (metaJson.rows ?? []) as TournamentMetaRow[];
+          const draftState =
+            metaRows.find((row) => row.tournament_slug === selectedTournament)?.draft_open ?? false;
+          setDraftOpen(draftState);
         }
       } catch (e: unknown) {
         if (!cancelled) {
           setEntrants([]);
           setSessionEntrant(null);
+          setDraftOpen(false);
           setPageError(getErrorMessage(e, "Failed to load admin state"));
         }
       } finally {
@@ -117,7 +137,7 @@ export default function AdminPage() {
     return () => {
       cancelled = true;
     };
-  }, [poolId]);
+  }, [poolId, selectedTournament]);
 
   useEffect(() => {
     setPreviewRows([]);
@@ -127,7 +147,35 @@ export default function AdminPage() {
     setScoreSyncMessage(null);
     setScoreResults([]);
     setSelectedScoreTournamentId(null);
+    setDraftStateError(null);
+    setDraftStateMessage(null);
   }, [selectedTournament]);
+
+  async function updateDraftState(nextDraftOpen: boolean) {
+    setDraftStateLoading(true);
+    setDraftStateError(null);
+    setDraftStateMessage(null);
+
+    try {
+      const res = await fetch("/api/admin/draft-state", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pool_id: poolId,
+          tournament_slug: selectedTournament,
+          draft_open: nextDraftOpen,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "Failed to update draft state");
+      setDraftOpen(nextDraftOpen);
+      setDraftStateMessage(nextDraftOpen ? "Draft is now open." : "Draft is now locked.");
+    } catch (e: unknown) {
+      setDraftStateError(getErrorMessage(e, "Failed to update draft state"));
+    } finally {
+      setDraftStateLoading(false);
+    }
+  }
 
   async function loadHandicapPreview() {
     setPreviewLoading(true);
@@ -321,6 +369,53 @@ export default function AdminPage() {
         <>
           <section className="grid gap-4 xl:grid-cols-[1.05fr,0.95fr]">
             <div className="rounded-2xl border border-border bg-surface p-5">
+              <div className="mb-5 rounded-xl border border-border/70 bg-bg/40 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h2 className="text-sm font-semibold">Draft Controls</h2>
+                    <p className="mt-1 text-xs text-muted">
+                      Open the draft when players are allowed to make picks. Lock it to freeze draft actions and pause auto-refresh on the live pages.
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-start gap-2 sm:items-end">
+                    <div className="text-xs text-muted">
+                      Status:{" "}
+                      <span className={draftOpen ? "font-semibold text-accent" : "font-semibold text-text"}>
+                        {draftOpen ? "Open" : "Locked"}
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void updateDraftState(true)}
+                        disabled={draftStateLoading || draftOpen}
+                        className={[
+                          "rounded-lg px-3 py-2 text-sm font-semibold",
+                          draftStateLoading || draftOpen ? "bg-border text-muted" : "bg-accent text-black",
+                        ].join(" ")}
+                      >
+                        Open Draft
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void updateDraftState(false)}
+                        disabled={draftStateLoading || !draftOpen}
+                        className={[
+                          "rounded-lg px-3 py-2 text-sm font-semibold",
+                          draftStateLoading || !draftOpen
+                            ? "bg-border text-muted"
+                            : "border border-border bg-bg text-text",
+                        ].join(" ")}
+                      >
+                        Lock Draft
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                {draftStateMessage && <div className="mt-3 text-xs text-accent">{draftStateMessage}</div>}
+                {draftStateError && <div className="mt-3 text-xs text-danger">{draftStateError}</div>}
+              </div>
+
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <h2 className="text-sm font-semibold">Odds And Handicap Sync</h2>
