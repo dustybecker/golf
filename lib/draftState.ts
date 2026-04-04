@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase";
+import { isDraftWindowOpen } from "@/lib/draftOrder";
 
 type DraftStateRow = {
   draft_open: boolean | null;
@@ -17,5 +18,5 @@ export async function getDraftOpenState(poolId: string) {
   }
 
   const row = ((data ?? []) as DraftStateRow[])[0];
-  return row?.draft_open ?? false;
+  return (row?.draft_open ?? false) && isDraftWindowOpen();
 }

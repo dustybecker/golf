@@ -60,6 +60,7 @@ type TournamentMetaOption = {
   label: string;
   round_par?: number;
   draft_open?: boolean;
+  draft_active_now?: boolean;
 };
 
 const TOURNAMENTS: TournamentOption[] = [
@@ -103,7 +104,7 @@ function HomePageContent() {
   const selectedTournamentMeta = availableTournaments.find(
     (item) => item.tournament_slug === selectedTournament
   );
-  const draftOpen = selectedTournamentMeta?.draft_open ?? false;
+  const draftOpen = selectedTournamentMeta?.draft_active_now ?? false;
   const refreshTick = useAutoRefreshValue(30000, draftOpen);
 
   function golferToPar(golfer: ScoringGolfer) {

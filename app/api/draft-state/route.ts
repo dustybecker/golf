@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { advanceDraftState, buildDraftState, EXPECTED_ENTRANT_COUNT } from "@/lib/draftOrder";
+import {
+  advanceDraftState,
+  buildDraftState,
+  EXPECTED_ENTRANT_COUNT,
+  isDraftWindowOpen,
+} from "@/lib/draftOrder";
 import { getErrorMessage } from "@/lib/error";
 import { supabaseAdmin } from "@/lib/supabase";
 
@@ -29,12 +34,14 @@ export async function GET(req: Request) {
     }
 
     const meta = ((metaRows ?? []) as TournamentMetaRow[])[0];
-    const summary = meta?.draft_open ? await advanceDraftState(poolId) : await buildDraftState(poolId);
+    const draftActiveNow = (meta?.draft_open ?? false) && isDraftWindowOpen();
+    const summary = draftActiveNow ? await advanceDraftState(poolId) : await buildDraftState(poolId);
 
     return NextResponse.json({
       ok: true,
       pool_id: poolId,
       draft_open: meta?.draft_open ?? false,
+      draft_active_now: draftActiveNow,
       draft_started: summary.draft_started,
       current_pick: summary.current_pick,
       current_round: summary.current_round,

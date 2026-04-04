@@ -36,10 +36,12 @@ type TournamentMetaRow = {
   tournament_slug: string;
   label: string;
   draft_open?: boolean;
+  draft_active_now?: boolean;
 };
 
 type DraftStateRow = {
   draft_open: boolean;
+  draft_active_now?: boolean;
   draft_started: boolean;
   current_pick: number | null;
   current_round: number | null;
@@ -151,7 +153,7 @@ function DraftPageContent() {
         const rows = (metaJson.rows ?? []) as TournamentMetaRow[];
         if (!cancelled) {
           setDraftOpen(
-            rows.find((row) => row.tournament_slug === selectedTournament)?.draft_open ?? false
+            rows.find((row) => row.tournament_slug === selectedTournament)?.draft_active_now ?? false
           );
           setDraftState((stateJson ?? null) as DraftStateRow | null);
         }
@@ -508,7 +510,7 @@ function DraftPageContent() {
           <span>
             {draftOpen
               ? "Board refreshes automatically every 30 seconds while this tab is open."
-              : "Draft is locked. Auto-refresh is paused until an admin opens the board."}
+              : "Draft is paused. Auto-refresh stops while the board is manually locked or outside 9AM-9PM Pacific."}
           </span>
           <span>Last updated: {formatLastUpdated(lastUpdated)}</span>
         </div>
@@ -516,7 +518,7 @@ function DraftPageContent() {
 
       {!draftOpen && (
         <section className="rounded-2xl border border-border bg-surface p-5 text-sm text-muted">
-          Draft is currently locked. Players will be able to make picks once an admin opens the draft from the Admin page.
+          Draft is currently paused. Players can make picks only when the board is manually open and the daily window is active from 9AM to 9PM Pacific.
         </section>
       )}
 

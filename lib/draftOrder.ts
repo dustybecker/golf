@@ -3,6 +3,9 @@ import { supabaseAdmin } from "@/lib/supabase";
 export const PICKS_PER_ENTRANT = 6;
 export const EXPECTED_ENTRANT_COUNT = 9;
 export const TURN_DURATION_SECONDS = 60 * 60 * 2;
+export const DRAFT_TIME_ZONE = "America/Los_Angeles";
+export const DRAFT_OPEN_HOUR = 9;
+export const DRAFT_CLOSE_HOUR = 21;
 
 export type DraftEntrantOrderRow = {
   entrant_id: string;
@@ -33,6 +36,136 @@ export type DraftStateSummary = {
   turn_started_at: string | null;
   turn_expires_at: string | null;
 };
+
+type PacificParts = {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+};
+
+function getPacificParts(date: Date): PacificParts {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: DRAFT_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+
+  const parts = formatter.formatToParts(date);
+  const getValue = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === type)?.value ?? "0");
+
+  return {
+    year: getValue("year"),
+    month: getValue("month"),
+    day: getValue("day"),
+    hour: getValue("hour"),
+    minute: getValue("minute"),
+    second: getValue("second"),
+  };
+}
+
+function shiftPacificDate(parts: PacificParts, dayOffset: number): PacificParts {
+  const shifted = new Date(Date.UTC(parts.year, parts.month - 1, parts.day + dayOffset, 12, 0, 0));
+  const next = getPacificParts(shifted);
+  return {
+    ...next,
+    hour: parts.hour,
+    minute: parts.minute,
+    second: parts.second,
+  };
+}
+
+function pacificTimeToUtc(parts: PacificParts): Date {
+  const targetUtc = Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second
+  );
+
+  let guess = new Date(targetUtc);
+  for (let i = 0; i < 3; i += 1) {
+    const guessParts = getPacificParts(guess);
+    const guessUtc = Date.UTC(
+      guessParts.year,
+      guessParts.month - 1,
+      guessParts.day,
+      guessParts.hour,
+      guessParts.minute,
+      guessParts.second
+    );
+    guess = new Date(guess.getTime() + (targetUtc - guessUtc));
+  }
+
+  return guess;
+}
+
+export function isDraftWindowOpen(date = new Date()) {
+  const { hour } = getPacificParts(date);
+  return hour >= DRAFT_OPEN_HOUR && hour < DRAFT_CLOSE_HOUR;
+}
+
+function nextDraftResumeAt(date = new Date()) {
+  const parts = getPacificParts(date);
+  const nextParts =
+    parts.hour < DRAFT_OPEN_HOUR
+      ? { ...parts, hour: DRAFT_OPEN_HOUR, minute: 0, second: 0 }
+      : {
+          ...shiftPacificDate(parts, 1),
+          hour: DRAFT_OPEN_HOUR,
+          minute: 0,
+          second: 0,
+        };
+
+  return pacificTimeToUtc(nextParts);
+}
+
+function currentDraftWindowEnd(date: Date) {
+  const parts = getPacificParts(date);
+  return pacificTimeToUtc({
+    ...parts,
+    hour: DRAFT_CLOSE_HOUR,
+    minute: 0,
+    second: 0,
+  });
+}
+
+function addDraftActiveSeconds(start: Date, seconds: number) {
+  let cursor = new Date(start);
+  let remainingMs = seconds * 1000;
+
+  if (!isDraftWindowOpen(cursor)) {
+    cursor = nextDraftResumeAt(cursor);
+  }
+
+  while (remainingMs > 0) {
+    if (!isDraftWindowOpen(cursor)) {
+      cursor = nextDraftResumeAt(cursor);
+    }
+
+    const windowEnd = currentDraftWindowEnd(cursor);
+    const availableMs = windowEnd.getTime() - cursor.getTime();
+
+    if (remainingMs <= availableMs) {
+      return new Date(cursor.getTime() + remainingMs);
+    }
+
+    remainingMs -= availableMs;
+    cursor = nextDraftResumeAt(new Date(windowEnd.getTime() + 1000));
+  }
+
+  return cursor;
+}
 
 export function snakeDraftPosition(currentPick: number, entrantCount: number) {
   const round = Math.floor((currentPick - 1) / entrantCount) + 1;
@@ -253,25 +386,26 @@ export async function syncDraftState(poolId: string, draftStarted: boolean) {
   const currentPick = draftStarted ? Math.min(totalPicks + 1, maxPicks + 1) : 1;
   const summary = buildSummaryFromState(entrants, totalPicks, draftStarted, currentPick, null, null);
 
+  const now = new Date();
+  const startedAt = draftStarted && !summary.is_complete ? now.toISOString() : null;
+  const expiresAt =
+    draftStarted && !summary.is_complete
+      ? addDraftActiveSeconds(now, TURN_DURATION_SECONDS).toISOString()
+      : null;
+
   await upsertDraftState(poolId, {
     draft_started: draftStarted,
     current_pick: summary.current_pick ?? 1,
     current_round: summary.current_round ?? 1,
     current_entrant_id: summary.current_entrant_id,
-    turn_started_at: draftStarted && !summary.is_complete ? new Date().toISOString() : null,
-    turn_expires_at:
-      draftStarted && !summary.is_complete
-        ? new Date(Date.now() + TURN_DURATION_SECONDS * 1000).toISOString()
-        : null,
+    turn_started_at: startedAt,
+    turn_expires_at: expiresAt,
   });
 
   return {
     ...summary,
-    turn_started_at: draftStarted && !summary.is_complete ? new Date().toISOString() : null,
-    turn_expires_at:
-      draftStarted && !summary.is_complete
-        ? new Date(Date.now() + TURN_DURATION_SECONDS * 1000).toISOString()
-        : null,
+    turn_started_at: startedAt,
+    turn_expires_at: expiresAt,
   };
 }
 
@@ -300,6 +434,28 @@ export async function advanceDraftState(poolId: string): Promise<DraftStateSumma
   }
 
   while (currentPick <= maxPicks) {
+    if (!isDraftWindowOpen()) {
+      const pausedSummary = buildSummaryFromState(
+        entrants,
+        await countDraftPicks(poolId),
+        true,
+        currentPick,
+        turnStartedAt,
+        turnExpiresAt
+      );
+
+      await upsertDraftState(poolId, {
+        draft_started: true,
+        current_pick: pausedSummary.current_pick ?? 1,
+        current_round: pausedSummary.current_round ?? 1,
+        current_entrant_id: pausedSummary.current_entrant_id,
+        turn_started_at: turnStartedAt,
+        turn_expires_at: turnExpiresAt,
+      });
+
+      return pausedSummary;
+    }
+
     const summary = buildSummaryFromState(
       entrants,
       await countDraftPicks(poolId),
@@ -337,8 +493,9 @@ export async function advanceDraftState(poolId: string): Promise<DraftStateSumma
     }
 
     if (!turnExpiresAt || state.current_entrant_id !== currentEntrant.entrant_id) {
-      turnStartedAt = new Date().toISOString();
-      turnExpiresAt = new Date(Date.now() + TURN_DURATION_SECONDS * 1000).toISOString();
+      const now = new Date();
+      turnStartedAt = now.toISOString();
+      turnExpiresAt = addDraftActiveSeconds(now, TURN_DURATION_SECONDS).toISOString();
     }
 
     const liveSummary = buildSummaryFromState(

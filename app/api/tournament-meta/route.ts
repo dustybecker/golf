@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getErrorMessage } from "@/lib/error";
+import { isDraftWindowOpen } from "@/lib/draftOrder";
 import { supabaseAdmin } from "@/lib/supabase";
 
 type TournamentMetaRow = {
@@ -41,6 +42,7 @@ export async function GET(req: Request) {
       round_count: row.round_count ?? 4,
       round_par: row.round_par ?? 72,
       draft_open: row.draft_open ?? false,
+      draft_active_now: (row.draft_open ?? false) && isDraftWindowOpen(),
     }));
 
     return NextResponse.json({ ok: true, poolId, rows });
