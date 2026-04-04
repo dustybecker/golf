@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedEntrant } from "@/lib/draftAuth";
-import { buildDraftState } from "@/lib/draftOrder";
+import { buildDraftState, EXPECTED_ENTRANT_COUNT } from "@/lib/draftOrder";
 import { getErrorMessage } from "@/lib/error";
 import { supabaseAdmin } from "@/lib/supabase";
 
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
       current_entrant_id: null,
       current_entrant_name: null,
       entrant_count: summary.entrant_count,
-      expected_entrant_count: summary.expected_entrant_count,
+      expected_entrant_count: EXPECTED_ENTRANT_COUNT,
       total_picks: 0,
       max_picks: summary.max_picks,
       is_complete: false,
