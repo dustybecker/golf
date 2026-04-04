@@ -91,6 +91,15 @@ function normalizePicks(rows: DraftPickRow[], entrantNames: string[]) {
   return base;
 }
 
+function formatCountdown(totalSeconds: number | null) {
+  if (totalSeconds === null) return "-";
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return [hours, minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
+}
+
 function DraftPageContent() {
   const searchParams = useSearchParams();
   const basePoolId = process.env.NEXT_PUBLIC_POOL_ID || "2026-majors";
@@ -144,8 +153,8 @@ function DraftPageContent() {
     async function loadDraftState() {
       try {
         const [metaRes, stateRes] = await Promise.all([
-          fetch(`/api/tournament-meta?pool_id=${encodeURIComponent(poolId)}`),
-          fetch(`/api/draft-state?pool_id=${encodeURIComponent(poolId)}`),
+          fetch(`/api/tournament-meta?pool_id=${encodeURIComponent(poolId)}`, { cache: "no-store" }),
+          fetch(`/api/draft-state?pool_id=${encodeURIComponent(poolId)}`, { cache: "no-store" }),
         ]);
         const [metaJson, stateJson] = await Promise.all([metaRes.json(), stateRes.json()]);
         if (!metaRes.ok) throw new Error(metaJson?.error ?? "Failed to load draft state");
@@ -178,7 +187,7 @@ function DraftPageContent() {
       setEntrantsLoading(true);
       setEntrantsError(null);
       try {
-        const res = await fetch(`/api/entrants?pool_id=${encodeURIComponent(poolId)}`);
+        const res = await fetch(`/api/entrants?pool_id=${encodeURIComponent(poolId)}`, { cache: "no-store" });
         const json = await res.json();
         if (!res.ok) throw new Error(json?.error ?? "Failed to load entrants");
         if (!cancelled) setEntrants((json.entrants ?? []) as Entrant[]);
@@ -195,7 +204,7 @@ function DraftPageContent() {
     async function loadSession() {
       setAuthError(null);
       try {
-        const res = await fetch(`/api/auth/me?pool_id=${encodeURIComponent(poolId)}`);
+        const res = await fetch(`/api/auth/me?pool_id=${encodeURIComponent(poolId)}`, { cache: "no-store" });
         const json = await res.json();
         if (!res.ok) throw new Error(json?.error ?? "Failed to load session");
         if (!cancelled) setSessionEntrant((json.entrant ?? null) as Entrant | null);
@@ -211,7 +220,7 @@ function DraftPageContent() {
       setLoadingGolfers(true);
       setGolfersError(null);
       try {
-        const res = await fetch(`/api/golfers?pool_id=${encodeURIComponent(poolId)}`);
+        const res = await fetch(`/api/golfers?pool_id=${encodeURIComponent(poolId)}`, { cache: "no-store" });
         const json = await res.json();
         if (!res.ok) throw new Error(json?.error ?? "Failed to load golfers");
         const loaded = (json.golfers ?? []) as Golfer[];
@@ -242,7 +251,7 @@ function DraftPageContent() {
       setLoadingPicks(true);
       setPicksError(null);
       try {
-        const res = await fetch(`/api/draft-picks?pool_id=${encodeURIComponent(poolId)}`);
+        const res = await fetch(`/api/draft-picks?pool_id=${encodeURIComponent(poolId)}`, { cache: "no-store" });
         const json = await res.json();
         if (!res.ok) throw new Error(json?.error ?? "Failed to load draft picks");
 
@@ -304,7 +313,7 @@ function DraftPageContent() {
   }, [draftState?.turn_expires_at, clockTick]);
 
   async function reloadPicks() {
-    const res = await fetch(`/api/draft-picks?pool_id=${encodeURIComponent(poolId)}`);
+    const res = await fetch(`/api/draft-picks?pool_id=${encodeURIComponent(poolId)}`, { cache: "no-store" });
     const json = await res.json();
     if (!res.ok) throw new Error(json?.error ?? "Failed to reload draft picks");
     const rows = (json.rows ?? []) as DraftPickRow[];
@@ -312,7 +321,7 @@ function DraftPageContent() {
     const names = entrantNames.length > 0 ? entrantNames : rowEntrants;
     setPicksByEntrant(normalizePicks(rows, names));
     setLastUpdated(new Date());
-    const stateRes = await fetch(`/api/draft-state?pool_id=${encodeURIComponent(poolId)}`);
+    const stateRes = await fetch(`/api/draft-state?pool_id=${encodeURIComponent(poolId)}`, { cache: "no-store" });
     const stateJson = await stateRes.json();
     if (stateRes.ok) setDraftState((stateJson ?? null) as DraftStateRow | null);
   }
@@ -503,7 +512,7 @@ function DraftPageContent() {
             Round {draftState?.current_round ?? "-"}
           </div>
           <div className="mt-1 text-xs text-muted">
-            Clock: {draftState?.is_complete ? "Complete" : timeRemaining === null ? "-" : `${timeRemaining}s`}
+            Clock: {draftState?.is_complete ? "Complete" : formatCountdown(timeRemaining)}
           </div>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted">
