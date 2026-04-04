@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedEntrant } from "@/lib/draftAuth";
-import { getDraftOpenState } from "@/lib/draftState";
+import { buildDraftState } from "@/lib/draftOrder";
 import { getErrorMessage } from "@/lib/error";
 import { supabaseAdmin } from "@/lib/supabase";
 
@@ -30,9 +30,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Not authenticated for this pool." }, { status: 401 });
     }
 
-    const draftOpen = await getDraftOpenState(poolId);
-    if (!draftOpen) {
-      return NextResponse.json({ error: "Draft is currently locked." }, { status: 423 });
+    const draftState = await buildDraftState(poolId);
+    if (draftState.total_picks > 0) {
+      return NextResponse.json(
+        { error: "Individual pick removal is disabled after the draft has started." },
+        { status: 423 }
+      );
     }
 
     const { error: deleteError } = await supabaseAdmin

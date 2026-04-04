@@ -12,6 +12,7 @@ export type EntrantIdentity = {
   entrant_slug: string;
   draft_position: number | null;
   is_admin: boolean;
+  auto_draft_enabled: boolean | null;
 };
 
 type SessionRow = {
@@ -44,7 +45,7 @@ export function generateAccessCode(length = 8) {
 async function loadEntrantById(entrantId: string) {
   const { data, error } = await supabaseAdmin
     .from("draft_entrants")
-    .select("entrant_id, pool_id, entrant_name, entrant_slug, draft_position, is_admin")
+    .select("entrant_id, pool_id, entrant_name, entrant_slug, draft_position, is_admin, auto_draft_enabled")
     .eq("entrant_id", entrantId)
     .maybeSingle<EntrantRow>();
 
@@ -123,7 +124,7 @@ export async function getAuthenticatedEntrant(poolId?: string) {
 export async function getEntrantBySlug(poolId: string, entrantSlug: string) {
   const { data, error } = await supabaseAdmin
     .from("draft_entrants")
-    .select("entrant_id, pool_id, entrant_name, entrant_slug, draft_position, is_admin, access_code_hash")
+    .select("entrant_id, pool_id, entrant_name, entrant_slug, draft_position, is_admin, auto_draft_enabled, access_code_hash")
     .eq("pool_id", poolId)
     .eq("entrant_slug", entrantSlug)
     .maybeSingle<EntrantRow & { access_code_hash: string }>();

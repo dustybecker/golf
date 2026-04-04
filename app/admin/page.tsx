@@ -14,6 +14,7 @@ type Entrant = {
   entrant_slug: string;
   draft_position: number | null;
   is_admin: boolean;
+  auto_draft_enabled?: boolean;
 };
 
 type GeneratedCodeState = {
@@ -51,6 +52,20 @@ type TournamentMetaRow = {
   draft_open?: boolean;
 };
 
+type DraftStateRow = {
+  draft_open: boolean;
+  draft_started: boolean;
+  current_pick: number | null;
+  current_round: number | null;
+  current_entrant_id: string | null;
+  current_entrant_name: string | null;
+  entrant_count: number;
+  expected_entrant_count: number;
+  total_picks: number;
+  max_picks: number;
+  is_complete: boolean;
+};
+
 const TOURNAMENTS: TournamentOption[] = [
   { slug: "masters", label: "The Masters" },
   { slug: "pga-championship", label: "PGA Championship" },
@@ -75,6 +90,7 @@ export default function AdminPage() {
   const [codeLoadingId, setCodeLoadingId] = useState<string | null>(null);
   const [codeError, setCodeError] = useState<string | null>(null);
   const [generatedCode, setGeneratedCode] = useState<GeneratedCodeState | null>(null);
+  const [autoDraftLoadingId, setAutoDraftLoadingId] = useState<string | null>(null);
 
   const [scoreSearch, setScoreSearch] = useState("houston");
   const [scoreSeason, setScoreSeason] = useState("2026");
@@ -89,6 +105,8 @@ export default function AdminPage() {
   const [draftStateLoading, setDraftStateLoading] = useState(false);
   const [draftStateMessage, setDraftStateMessage] = useState<string | null>(null);
   const [draftStateError, setDraftStateError] = useState<string | null>(null);
+  const [draftState, setDraftState] = useState<DraftStateRow | null>(null);
+  const [resettingPreDraft, setResettingPreDraft] = useState(false);
 
   const poolId = useMemo(() => `${basePoolId}-${selectedTournament}`, [basePoolId, selectedTournament]);
 
@@ -99,19 +117,22 @@ export default function AdminPage() {
       setLoadingSession(true);
       setPageError(null);
       try {
-        const [entrantsRes, sessionRes, metaRes] = await Promise.all([
+        const [entrantsRes, sessionRes, metaRes, draftStateRes] = await Promise.all([
           fetch(`/api/entrants?pool_id=${encodeURIComponent(poolId)}`),
           fetch(`/api/auth/me?pool_id=${encodeURIComponent(poolId)}`),
           fetch(`/api/tournament-meta?pool_id=${encodeURIComponent(poolId)}`),
+          fetch(`/api/draft-state?pool_id=${encodeURIComponent(poolId)}`),
         ]);
 
         const entrantsJson = await entrantsRes.json();
         const sessionJson = await sessionRes.json();
         const metaJson = await metaRes.json();
+        const draftStateJson = await draftStateRes.json();
 
         if (!entrantsRes.ok) throw new Error(entrantsJson?.error ?? "Failed to load entrants");
         if (!sessionRes.ok) throw new Error(sessionJson?.error ?? "Failed to load session");
         if (!metaRes.ok) throw new Error(metaJson?.error ?? "Failed to load draft state");
+        if (!draftStateRes.ok) throw new Error(draftStateJson?.error ?? "Failed to load draft pointer");
 
         if (!cancelled) {
           setEntrants((entrantsJson.entrants ?? []) as Entrant[]);
@@ -120,12 +141,14 @@ export default function AdminPage() {
           const draftState =
             metaRows.find((row) => row.tournament_slug === selectedTournament)?.draft_open ?? false;
           setDraftOpen(draftState);
+          setDraftState((draftStateJson ?? null) as DraftStateRow | null);
         }
       } catch (e: unknown) {
         if (!cancelled) {
           setEntrants([]);
           setSessionEntrant(null);
           setDraftOpen(false);
+          setDraftState(null);
           setPageError(getErrorMessage(e, "Failed to load admin state"));
         }
       } finally {
@@ -169,11 +192,46 @@ export default function AdminPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error ?? "Failed to update draft state");
       setDraftOpen(nextDraftOpen);
+      setDraftState((json ?? null) as DraftStateRow | null);
       setDraftStateMessage(nextDraftOpen ? "Draft is now open." : "Draft is now locked.");
     } catch (e: unknown) {
       setDraftStateError(getErrorMessage(e, "Failed to update draft state"));
     } finally {
       setDraftStateLoading(false);
+    }
+  }
+
+  async function resetToPreDraftState() {
+    setResettingPreDraft(true);
+    setDraftStateError(null);
+    setDraftStateMessage(null);
+    setCodeError(null);
+
+    try {
+      const res = await fetch("/api/admin/draft-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pool_id: poolId,
+          tournament_slug: selectedTournament,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "Failed to reset draft state");
+
+      setDraftOpen(false);
+      setDraftState((json ?? null) as DraftStateRow | null);
+      setEntrants((current) =>
+        current.map((entrant) => ({
+          ...entrant,
+          auto_draft_enabled: false,
+        }))
+      );
+      setDraftStateMessage("Pool reset to pre-draft state.");
+    } catch (e: unknown) {
+      setDraftStateError(getErrorMessage(e, "Failed to reset pool to pre-draft state"));
+    } finally {
+      setResettingPreDraft(false);
     }
   }
 
@@ -244,6 +302,36 @@ export default function AdminPage() {
       setCodeError(getErrorMessage(e, "Failed to generate access code"));
     } finally {
       setCodeLoadingId(null);
+    }
+  }
+
+  async function updateEntrantAutoDraft(entrant: Entrant, nextValue: boolean) {
+    setAutoDraftLoadingId(entrant.entrant_id);
+    setCodeError(null);
+    try {
+      const res = await fetch("/api/admin/entrant-auto-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pool_id: poolId,
+          entrant_id: entrant.entrant_id,
+          auto_draft_enabled: nextValue,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "Failed to update auto-draft");
+      setEntrants((current) =>
+        current.map((row) =>
+          row.entrant_id === entrant.entrant_id ? { ...row, auto_draft_enabled: nextValue } : row
+        )
+      );
+      if (json?.draft_state) {
+        setDraftState(json.draft_state as DraftStateRow);
+      }
+    } catch (e: unknown) {
+      setCodeError(getErrorMessage(e, "Failed to update auto-draft"));
+    } finally {
+      setAutoDraftLoadingId(null);
     }
   }
 
@@ -388,10 +476,10 @@ export default function AdminPage() {
                       <button
                         type="button"
                         onClick={() => void updateDraftState(true)}
-                        disabled={draftStateLoading || draftOpen}
+                        disabled={draftStateLoading || resettingPreDraft || draftOpen}
                         className={[
                           "rounded-lg px-3 py-2 text-sm font-semibold",
-                          draftStateLoading || draftOpen ? "bg-border text-muted" : "bg-accent text-black",
+                          draftStateLoading || resettingPreDraft || draftOpen ? "bg-border text-muted" : "bg-accent text-black",
                         ].join(" ")}
                       >
                         Open Draft
@@ -399,16 +487,49 @@ export default function AdminPage() {
                       <button
                         type="button"
                         onClick={() => void updateDraftState(false)}
-                        disabled={draftStateLoading || !draftOpen}
+                        disabled={draftStateLoading || resettingPreDraft || !draftOpen}
                         className={[
                           "rounded-lg px-3 py-2 text-sm font-semibold",
-                          draftStateLoading || !draftOpen
+                          draftStateLoading || resettingPreDraft || !draftOpen
                             ? "bg-border text-muted"
                             : "border border-border bg-bg text-text",
                         ].join(" ")}
                       >
                         Lock Draft
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => void resetToPreDraftState()}
+                        disabled={draftStateLoading || resettingPreDraft}
+                        className={[
+                          "rounded-lg px-3 py-2 text-sm font-semibold",
+                          draftStateLoading || resettingPreDraft
+                            ? "bg-border text-muted"
+                            : "border border-danger/40 bg-danger/10 text-danger",
+                        ].join(" ")}
+                      >
+                        {resettingPreDraft ? "Resetting..." : "Reset To Pre-Draft"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-lg border border-border/70 bg-surface px-3 py-3">
+                    <div className="text-[11px] uppercase tracking-wide text-muted">Entrants</div>
+                    <div className="mt-1 text-sm font-semibold text-text">
+                      {draftState?.entrant_count ?? entrants.length} / {draftState?.expected_entrant_count ?? 9}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-border/70 bg-surface px-3 py-3">
+                    <div className="text-[11px] uppercase tracking-wide text-muted">Current Pick</div>
+                    <div className="mt-1 text-sm font-semibold text-text">
+                      {draftState?.is_complete ? "Complete" : draftState?.current_pick ?? "-"}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-border/70 bg-surface px-3 py-3">
+                    <div className="text-[11px] uppercase tracking-wide text-muted">On The Clock</div>
+                    <div className="mt-1 text-sm font-semibold text-text">
+                      {draftState?.is_complete ? "Draft complete" : draftState?.current_entrant_name ?? "Not started"}
                     </div>
                   </div>
                 </div>
@@ -518,6 +639,7 @@ export default function AdminPage() {
                       <th className="px-3 py-3 text-left">Entrant</th>
                       <th className="px-3 py-3 text-left">Slug</th>
                       <th className="px-3 py-3 text-left">Role</th>
+                      <th className="px-3 py-3 text-left">Auto</th>
                       <th className="px-3 py-3 text-right">Action</th>
                     </tr>
                   </thead>
@@ -528,6 +650,27 @@ export default function AdminPage() {
                         <td className="px-3 py-3 text-xs text-muted">{entrant.entrant_slug}</td>
                         <td className="px-3 py-3 text-xs">
                           {entrant.is_admin ? <span className="text-accent">Admin</span> : <span className="text-muted">Player</span>}
+                        </td>
+                        <td className="px-3 py-3 text-xs">
+                          <button
+                            type="button"
+                            onClick={() => void updateEntrantAutoDraft(entrant, !entrant.auto_draft_enabled)}
+                            disabled={autoDraftLoadingId === entrant.entrant_id}
+                            className={[
+                              "rounded-lg px-3 py-1.5 font-semibold",
+                              autoDraftLoadingId === entrant.entrant_id
+                                ? "bg-border text-muted"
+                                : entrant.auto_draft_enabled
+                                  ? "bg-accent text-black"
+                                  : "border border-border bg-bg text-text",
+                            ].join(" ")}
+                          >
+                            {autoDraftLoadingId === entrant.entrant_id
+                              ? "Saving..."
+                              : entrant.auto_draft_enabled
+                                ? "Auto On"
+                                : "Auto Off"}
+                          </button>
                         </td>
                         <td className="px-3 py-3 text-right">
                           <button

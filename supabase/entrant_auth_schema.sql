@@ -11,6 +11,7 @@ create table if not exists public.draft_entrants (
   access_code_hash text not null,
   access_code_hint text,
   is_admin boolean not null default false,
+  auto_draft_enabled boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (pool_id, entrant_name),

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedEntrant } from "@/lib/draftAuth";
+import { advanceDraftState, buildDraftState, EXPECTED_ENTRANT_COUNT, syncDraftState } from "@/lib/draftOrder";
 import { getErrorMessage } from "@/lib/error";
 import { supabaseAdmin } from "@/lib/supabase";
 
@@ -29,6 +30,22 @@ export async function POST(req: Request) {
     }
     if (!session.entrant.is_admin) {
       return NextResponse.json({ error: "Admin access required." }, { status: 403 });
+    }
+
+    const { count: entrantCount, error: entrantCountError } = await supabaseAdmin
+      .from("draft_entrants")
+      .select("*", { count: "exact", head: true })
+      .eq("pool_id", poolId);
+
+    if (entrantCountError) {
+      return NextResponse.json({ error: entrantCountError.message }, { status: 500 });
+    }
+
+    if ((entrantCount ?? 0) !== EXPECTED_ENTRANT_COUNT) {
+      return NextResponse.json(
+        { error: `Draft requires exactly ${EXPECTED_ENTRANT_COUNT} entrants before opening.` },
+        { status: 400 }
+      );
     }
 
     const { data: existingRows, error: loadError } = await supabaseAdmin
@@ -61,11 +78,53 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    let summary;
+    if (draftOpen) {
+      await syncDraftState(poolId, true);
+      summary = await advanceDraftState(poolId);
+    } else {
+      summary = await buildDraftState(poolId);
+      const { error: pauseError } = await supabaseAdmin.from("draft_state").upsert(
+        {
+          pool_id: poolId,
+          draft_started: summary.draft_started,
+          current_pick: summary.current_pick ?? 1,
+          current_round: summary.current_round ?? 1,
+          current_entrant_id: summary.current_entrant_id,
+          turn_started_at: null,
+          turn_expires_at: null,
+        },
+        { onConflict: "pool_id" }
+      );
+
+      if (pauseError) {
+        return NextResponse.json({ error: pauseError.message }, { status: 500 });
+      }
+
+      summary = {
+        ...summary,
+        turn_started_at: null,
+        turn_expires_at: null,
+      };
+    }
+
     return NextResponse.json({
       ok: true,
       pool_id: poolId,
       tournament_slug: tournamentSlug,
       draft_open: draftOpen,
+      draft_started: draftOpen,
+      current_pick: draftOpen ? summary.current_pick : null,
+      current_round: draftOpen ? summary.current_round : null,
+      current_entrant_id: draftOpen ? summary.current_entrant_id : null,
+      current_entrant_name: draftOpen ? summary.current_entrant_name : null,
+      entrant_count: summary.entrant_count,
+      expected_entrant_count: EXPECTED_ENTRANT_COUNT,
+      total_picks: summary.total_picks,
+      max_picks: summary.max_picks,
+      is_complete: summary.is_complete,
+      turn_started_at: draftOpen ? summary.turn_started_at : null,
+      turn_expires_at: draftOpen ? summary.turn_expires_at : null,
     });
   } catch (error: unknown) {
     return NextResponse.json(

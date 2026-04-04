@@ -29,12 +29,29 @@ type Entrant = {
   entrant_slug: string;
   draft_position: number | null;
   is_admin: boolean;
+  auto_draft_enabled?: boolean;
 };
 
 type TournamentMetaRow = {
   tournament_slug: string;
   label: string;
   draft_open?: boolean;
+};
+
+type DraftStateRow = {
+  draft_open: boolean;
+  draft_started: boolean;
+  current_pick: number | null;
+  current_round: number | null;
+  current_entrant_id: string | null;
+  current_entrant_name: string | null;
+  entrant_count: number;
+  expected_entrant_count: number;
+  total_picks: number;
+  max_picks: number;
+  is_complete: boolean;
+  turn_started_at: string | null;
+  turn_expires_at: string | null;
 };
 
 const TOURNAMENTS: TournamentOption[] = [
@@ -78,7 +95,9 @@ function DraftPageContent() {
   const [selectedTournament, setSelectedTournament] = useState<TournamentOption["slug"]>("masters");
   const [query, setQuery] = useState("");
   const [draftOpen, setDraftOpen] = useState(false);
-  const refreshTick = useAutoRefreshValue(15000, draftOpen);
+  const [draftState, setDraftState] = useState<DraftStateRow | null>(null);
+  const refreshTick = useAutoRefreshValue(30000, draftOpen);
+  const [clockTick, setClockTick] = useState(0);
 
   const [entrants, setEntrants] = useState<Entrant[]>([]);
   const [entrantsLoading, setEntrantsLoading] = useState(true);
@@ -86,6 +105,7 @@ function DraftPageContent() {
 
   const [sessionEntrant, setSessionEntrant] = useState<Entrant | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [togglingAutoDraft, setTogglingAutoDraft] = useState(false);
 
   const [golfers, setGolfers] = useState<Golfer[]>(FALLBACK_GOLFERS);
   const [loadingGolfers, setLoadingGolfers] = useState(true);
@@ -111,21 +131,35 @@ function DraftPageContent() {
   }, [searchParams]);
 
   useEffect(() => {
+    if (!draftOpen) return;
+    const intervalId = window.setInterval(() => setClockTick((value) => value + 1), 1000);
+    return () => window.clearInterval(intervalId);
+  }, [draftOpen]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function loadDraftState() {
       try {
-        const res = await fetch(`/api/tournament-meta?pool_id=${encodeURIComponent(poolId)}`);
-        const json = await res.json();
-        if (!res.ok) throw new Error(json?.error ?? "Failed to load draft state");
-        const rows = (json.rows ?? []) as TournamentMetaRow[];
+        const [metaRes, stateRes] = await Promise.all([
+          fetch(`/api/tournament-meta?pool_id=${encodeURIComponent(poolId)}`),
+          fetch(`/api/draft-state?pool_id=${encodeURIComponent(poolId)}`),
+        ]);
+        const [metaJson, stateJson] = await Promise.all([metaRes.json(), stateRes.json()]);
+        if (!metaRes.ok) throw new Error(metaJson?.error ?? "Failed to load draft state");
+        if (!stateRes.ok) throw new Error(stateJson?.error ?? "Failed to load draft pointer");
+        const rows = (metaJson.rows ?? []) as TournamentMetaRow[];
         if (!cancelled) {
           setDraftOpen(
             rows.find((row) => row.tournament_slug === selectedTournament)?.draft_open ?? false
           );
+          setDraftState((stateJson ?? null) as DraftStateRow | null);
         }
       } catch {
-        if (!cancelled) setDraftOpen(false);
+        if (!cancelled) {
+          setDraftOpen(false);
+          setDraftState(null);
+        }
       }
     }
 
@@ -243,6 +277,11 @@ function DraftPageContent() {
   const activePicks = activeEntrantName ? picksByEntrant[activeEntrantName] ?? [] : [];
   const activeIsFull = activePicks.length >= MAX_PICKS_PER_ENTRANT;
   const draftSummaryNames = entrantNames.length > 0 ? entrantNames : Object.keys(picksByEntrant);
+  const isOnClock = Boolean(
+    sessionEntrant &&
+      draftState?.current_entrant_id &&
+      sessionEntrant.entrant_id === draftState.current_entrant_id
+  );
 
   const visibleGolfers = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -254,6 +293,13 @@ function DraftPageContent() {
     () => golfers.filter((golfer) => !pickedGolferIds.has(golfer.golfer)).length,
     [golfers, pickedGolferIds]
   );
+  const timeRemaining = useMemo(() => {
+    void clockTick;
+    if (!draftState?.turn_expires_at) return null;
+    const ms = Date.parse(draftState.turn_expires_at) - Date.now();
+    if (!Number.isFinite(ms)) return null;
+    return Math.max(0, Math.ceil(ms / 1000));
+  }, [draftState?.turn_expires_at, clockTick]);
 
   async function reloadPicks() {
     const res = await fetch(`/api/draft-picks?pool_id=${encodeURIComponent(poolId)}`);
@@ -264,12 +310,53 @@ function DraftPageContent() {
     const names = entrantNames.length > 0 ? entrantNames : rowEntrants;
     setPicksByEntrant(normalizePicks(rows, names));
     setLastUpdated(new Date());
+    const stateRes = await fetch(`/api/draft-state?pool_id=${encodeURIComponent(poolId)}`);
+    const stateJson = await stateRes.json();
+    if (stateRes.ok) setDraftState((stateJson ?? null) as DraftStateRow | null);
   }
 
   async function handleLogout() {
     setAuthError(null);
     await fetch("/api/auth/logout", { method: "POST" });
     setSessionEntrant(null);
+  }
+
+  async function toggleAutoDraft() {
+    if (!sessionEntrant) return;
+
+    setTogglingAutoDraft(true);
+    setPicksError(null);
+    try {
+      const nextValue = !sessionEntrant.auto_draft_enabled;
+      const res = await fetch("/api/admin/entrant-auto-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pool_id: poolId,
+          entrant_id: sessionEntrant.entrant_id,
+          auto_draft_enabled: nextValue,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "Failed to update auto-draft");
+
+      setSessionEntrant((current) =>
+        current ? { ...current, auto_draft_enabled: nextValue } : current
+      );
+      setEntrants((current) =>
+        current.map((entrant) =>
+          entrant.entrant_id === sessionEntrant.entrant_id
+            ? { ...entrant, auto_draft_enabled: nextValue }
+            : entrant
+        )
+      );
+      if (json?.draft_state) setDraftState(json.draft_state as DraftStateRow);
+      await reloadPicks();
+    } catch (e: unknown) {
+      setPicksError(getErrorMessage(e, "Failed to update auto-draft"));
+    } finally {
+      setTogglingAutoDraft(false);
+    }
   }
 
   async function addPick(golfer: string) {
@@ -401,10 +488,26 @@ function DraftPageContent() {
             <div className="mt-1 text-2xl font-semibold">{draftSummaryNames.length}</div>
           </div>
         </div>
+        <div className="mt-4 rounded-2xl border border-border/70 bg-bg/40 px-4 py-3 text-sm">
+          <div className="text-[11px] uppercase tracking-wide text-muted">On The Clock</div>
+          <div className="mt-1 font-semibold text-text">
+            {draftState?.is_complete
+              ? "Draft complete"
+              : draftState?.current_entrant_name ?? "Draft not started"}
+          </div>
+          <div className="mt-1 text-xs text-muted">
+            Pick {draftState?.current_pick ?? "-"} of {draftState?.max_picks ?? draftSummaryNames.length * MAX_PICKS_PER_ENTRANT}
+            {" "} | {" "}
+            Round {draftState?.current_round ?? "-"}
+          </div>
+          <div className="mt-1 text-xs text-muted">
+            Clock: {draftState?.is_complete ? "Complete" : timeRemaining === null ? "-" : `${timeRemaining}s`}
+          </div>
+        </div>
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted">
           <span>
             {draftOpen
-              ? "Board refreshes automatically every 15 seconds while this tab is open."
+              ? "Board refreshes automatically every 30 seconds while this tab is open."
               : "Draft is locked. Auto-refresh is paused until an admin opens the board."}
           </span>
           <span>Last updated: {formatLastUpdated(lastUpdated)}</span>
@@ -436,6 +539,29 @@ function DraftPageContent() {
             <div className="mt-3 rounded-lg border border-border/70 bg-bg/60 px-3 py-2 text-xs text-muted">
               Picks: <span className="font-semibold text-text">{activePicks.length}</span> / {MAX_PICKS_PER_ENTRANT}
             </div>
+            <div className="mt-2 rounded-lg border border-border/70 bg-bg/60 px-3 py-2 text-xs text-muted">
+              On clock: <span className="font-semibold text-text">{isOnClock ? "Yes" : "No"}</span>
+            </div>
+            <div className="mt-2 rounded-lg border border-border/70 bg-bg/60 px-3 py-2 text-xs text-muted">
+              Auto draft:{" "}
+              <span className="font-semibold text-text">
+                {sessionEntrant?.auto_draft_enabled ? "On" : "Off"}
+              </span>
+            </div>
+            {sessionEntrant && (
+              <button
+                type="button"
+                onClick={() => void toggleAutoDraft()}
+                disabled={togglingAutoDraft || savingPicks}
+                className="mt-3 w-full rounded-lg border border-border/70 bg-bg/70 px-3 py-2 text-sm font-medium text-text transition hover:bg-bg disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {togglingAutoDraft
+                  ? "Updating..."
+                  : sessionEntrant.auto_draft_enabled
+                    ? "Turn Auto Draft Off"
+                    : "Turn Auto Draft On"}
+              </button>
+            )}
             <div className="mt-2 text-xs text-muted">
               {savingPicks
                 ? "Saving..."
@@ -472,8 +598,8 @@ function DraftPageContent() {
                       <button
                         type="button"
                         onClick={() => void removePick(golfer)}
-                        disabled={!draftOpen}
-                        className={["text-xs", draftOpen ? "text-danger" : "text-muted"].join(" ")}
+                        disabled
+                        className="text-xs text-muted"
                       >
                         Remove
                       </button>
@@ -538,7 +664,14 @@ function DraftPageContent() {
                       (picksByEntrant[entrantName] ?? []).includes(golfer.golfer)
                     ) ??
                     null;
-                  const canPick = Boolean(sessionEntrant) && draftOpen && !picked && !activeIsFull && !savingPicks;
+                  const canPick =
+                    Boolean(sessionEntrant) &&
+                    draftOpen &&
+                    isOnClock &&
+                    !picked &&
+                    !activeIsFull &&
+                    !savingPicks &&
+                    !draftState?.is_complete;
 
                   return (
                     <tr key={golfer.id}>
@@ -562,7 +695,17 @@ function DraftPageContent() {
                             canPick ? "bg-accent text-black" : "bg-border text-muted",
                           ].join(" ")}
                         >
-                          {!sessionEntrant ? "Sign in" : picked ? "Locked" : draftOpen ? "Draft" : "Locked"}
+                          {!sessionEntrant
+                            ? "Sign in"
+                            : picked
+                              ? "Locked"
+                              : !draftOpen
+                                ? "Locked"
+                                : draftState?.is_complete
+                                  ? "Done"
+                                  : isOnClock
+                                    ? "Draft"
+                                    : "Wait"}
                         </button>
                       </td>
                     </tr>
@@ -585,6 +728,9 @@ function DraftPageContent() {
                 <div className="mt-1 text-xs text-muted">
                   {picks.length} / {MAX_PICKS_PER_ENTRANT} picks
                 </div>
+                {entrants.find((entrant) => entrant.entrant_name === entrantName)?.auto_draft_enabled && (
+                  <div className="mt-1 text-[11px] uppercase tracking-wide text-accent">Auto Draft</div>
+                )}
                 <div className="mt-2 space-y-1 text-xs">
                   {picks.length === 0 && <div className="text-muted">No picks yet.</div>}
                   {picks.map((golfer, idx) => (

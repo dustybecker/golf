@@ -7,6 +7,7 @@ type EntrantRow = {
   entrant_slug: string;
   draft_position: number | null;
   is_admin: boolean;
+  auto_draft_enabled: boolean | null;
 };
 
 export async function GET(req: Request) {
@@ -19,7 +20,7 @@ export async function GET(req: Request) {
 
   const { data, error } = await supabaseAdmin
     .from("draft_entrants")
-    .select("entrant_id, entrant_name, entrant_slug, draft_position, is_admin")
+    .select("entrant_id, entrant_name, entrant_slug, draft_position, is_admin, auto_draft_enabled")
     .eq("pool_id", poolId)
     .order("draft_position", { ascending: true, nullsFirst: false })
     .order("entrant_name", { ascending: true });

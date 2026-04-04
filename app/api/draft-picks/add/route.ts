@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedEntrant } from "@/lib/draftAuth";
+import { advanceDraftState } from "@/lib/draftOrder";
 import { getDraftOpenState } from "@/lib/draftState";
 import { getErrorMessage } from "@/lib/error";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -30,6 +31,22 @@ export async function POST(req: Request) {
     const draftOpen = await getDraftOpenState(poolId);
     if (!draftOpen) {
       return NextResponse.json({ error: "Draft is currently locked." }, { status: 423 });
+    }
+
+    const draftState = await advanceDraftState(poolId);
+    if (draftState.is_complete) {
+      return NextResponse.json({ error: "Draft is already complete." }, { status: 400 });
+    }
+    if (!draftState.current_entrant_id) {
+      return NextResponse.json({ error: "Draft has not been initialized." }, { status: 400 });
+    }
+    if (draftState.current_entrant_id !== session.entrant.entrant_id) {
+      return NextResponse.json(
+        {
+          error: `It is currently ${draftState.current_entrant_name ?? "another entrant"}'s turn.`,
+        },
+        { status: 409 }
+      );
     }
 
     const { data: validGolfer, error: golferError } = await supabaseAdmin
@@ -82,12 +99,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
 
+    const summary = await advanceDraftState(poolId);
+
     return NextResponse.json({
       ok: true,
       poolId,
       entrant: session.entrant.entrant_name,
       golfer,
       pick_number: nextPickNumber,
+      next_pick: summary.current_pick,
+      next_round: summary.current_round,
+      next_entrant_id: summary.current_entrant_id,
+      next_entrant_name: summary.current_entrant_name,
     });
   } catch (error: unknown) {
     return NextResponse.json(
