@@ -296,9 +296,12 @@ function DraftPageContent() {
 
   const visibleGolfers = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return golfers;
-    return golfers.filter((g) => g.golfer.toLowerCase().includes(q));
-  }, [golfers, query]);
+    return golfers.filter((g) => {
+      if (pickedGolferIds.has(g.golfer)) return false;
+      if (!q) return true;
+      return g.golfer.toLowerCase().includes(q);
+    });
+  }, [golfers, pickedGolferIds, query]);
 
   const availableGolferCount = useMemo(
     () => golfers.filter((golfer) => !pickedGolferIds.has(golfer.golfer)).length,
@@ -638,7 +641,7 @@ function DraftPageContent() {
             <div>
               <div className="text-sm font-semibold">Golfer Pool</div>
               <div className="text-xs text-muted">
-                Once selected, a golfer is locked and unavailable for everyone else.
+                Only undrafted golfers are shown here. Once selected, a golfer disappears from the board for everyone else.
               </div>
               {loadingGolfers && <div className="text-xs text-muted">Loading golfers from Supabase...</div>}
               {golfersError && <div className="text-xs text-danger">Supabase load failed; using fallback list.</div>}
