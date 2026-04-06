@@ -163,16 +163,25 @@ export async function fetchHandicaps(apiKey: string, tournament: TournamentSlug)
     0
   );
 
-  return withProbabilities.map((golfer, index) => ({
-    rank: index + 1,
-    golfer: golfer.golfer,
-    best_odds: golfer.best_odds,
-    sportsbook: golfer.sportsbook,
-    implied_probability: Number(golfer.implied_probability.toFixed(6)),
-    normalized_probability: Number(
-      (totalProbability > 0 ? golfer.implied_probability / totalProbability : 0).toFixed(6)
-    ),
-    handicap: computeHandicap(index, withProbabilities.length),
-  })) satisfies GolferHandicapRow[];
+  let tieGroupStartIndex = 0;
+
+  return withProbabilities.map((golfer, index) => {
+    const previousGolfer = withProbabilities[index - 1];
+    if (!previousGolfer || previousGolfer.best_odds !== golfer.best_odds) {
+      tieGroupStartIndex = index;
+    }
+
+    return {
+      rank: index + 1,
+      golfer: golfer.golfer,
+      best_odds: golfer.best_odds,
+      sportsbook: golfer.sportsbook,
+      implied_probability: Number(golfer.implied_probability.toFixed(6)),
+      normalized_probability: Number(
+        (totalProbability > 0 ? golfer.implied_probability / totalProbability : 0).toFixed(6)
+      ),
+      handicap: computeHandicap(tieGroupStartIndex, withProbabilities.length),
+    };
+  }) satisfies GolferHandicapRow[];
 }
 import { getErrorMessage } from "@/lib/error";
