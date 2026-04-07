@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getErrorMessage } from "@/lib/error";
-import { TOURNAMENTS } from "@/lib/tournaments";
+import { isTournamentPollingActive, TournamentSlug, TOURNAMENTS } from "@/lib/tournaments";
 import { formatLastUpdated, useAutoRefreshValue } from "@/lib/useAutoRefresh";
 
 type TournamentRow = {
@@ -46,7 +46,8 @@ export default function TournamentLeaderboardPage() {
     (item) => item.tournament_slug === selectedTournament
   );
   const draftOpen = selectedTournamentMeta?.draft_active_now ?? false;
-  const refreshTick = useAutoRefreshValue(30000, true);
+  const pollingActive = isTournamentPollingActive(selectedTournament as TournamentSlug);
+  const refreshTick = useAutoRefreshValue(30000, pollingActive);
 
   function formatToPar(grossTotal: number, roundsPlayed: number) {
     const roundPar = selectedTournamentMeta?.round_par ?? 72;
@@ -143,7 +144,11 @@ export default function TournamentLeaderboardPage() {
           <div className="text-xs text-muted">Pool: {poolId}</div>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted">
-          <span>Tournament scores refresh automatically every 30 seconds while this tab is open.</span>
+          <span>
+            {pollingActive
+              ? "Tournament scores refresh automatically every 30 seconds while this tab is open."
+              : "Auto-refresh is paused outside tournament hours."}
+          </span>
           <span>Last updated: {formatLastUpdated(lastUpdated)}</span>
         </div>
       </section>

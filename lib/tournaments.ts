@@ -4,17 +4,67 @@ export type TournamentSlug =
   | "us-open"
   | "the-open";
 
+export type TournamentSchedule = {
+  /** Inclusive start date in YYYY-MM-DD (tournament timezone) */
+  startDate: string;
+  /** Inclusive end date in YYYY-MM-DD (tournament timezone) */
+  endDate: string;
+  /** Hour of day to start polling (0-23, tournament timezone) */
+  dailyStartHour: number;
+  /** Hour of day to stop polling (0-23, tournament timezone) */
+  dailyEndHour: number;
+  timezone: string;
+};
+
 export type TournamentOption = {
   slug: TournamentSlug;
   label: string;
+  schedule?: TournamentSchedule;
 };
 
 export const TOURNAMENTS: TournamentOption[] = [
-  { slug: "masters", label: "The Masters" },
+  {
+    slug: "masters",
+    label: "The Masters",
+    schedule: {
+      startDate: "2026-04-10",
+      endDate: "2026-04-13",
+      dailyStartHour: 6,
+      dailyEndHour: 21,
+      timezone: "America/Chicago",
+    },
+  },
   { slug: "pga-championship", label: "PGA Championship" },
   { slug: "us-open", label: "U.S. Open" },
   { slug: "the-open", label: "The Open Championship" },
 ];
+
+function getTournamentDateParts(date: Date, timezone: string) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(date);
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? "0";
+  const dateStr = `${get("year")}-${get("month")}-${get("day")}`;
+  const hour = Number(get("hour"));
+  return { dateStr, hour };
+}
+
+export function isTournamentPollingActive(slug: TournamentSlug, now = new Date()): boolean {
+  const tournament = TOURNAMENTS.find((t) => t.slug === slug);
+  if (!tournament?.schedule) return false;
+
+  const { startDate, endDate, dailyStartHour, dailyEndHour, timezone } = tournament.schedule;
+  const { dateStr, hour } = getTournamentDateParts(now, timezone);
+
+  return dateStr >= startDate && dateStr <= endDate && hour >= dailyStartHour && hour < dailyEndHour;
+}
 
 export function isTournamentSlug(value: string): value is TournamentSlug {
   return TOURNAMENTS.some((option) => option.slug === value);
