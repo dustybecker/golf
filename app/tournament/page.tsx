@@ -46,7 +46,7 @@ export default function TournamentLeaderboardPage() {
     (item) => item.tournament_slug === selectedTournament
   );
   const draftOpen = selectedTournamentMeta?.draft_active_now ?? false;
-  const refreshTick = useAutoRefreshValue(30000, draftOpen);
+  const refreshTick = useAutoRefreshValue(30000, true);
 
   function formatToPar(grossTotal: number, roundsPlayed: number) {
     const roundPar = selectedTournamentMeta?.round_par ?? 72;
@@ -143,11 +143,7 @@ export default function TournamentLeaderboardPage() {
           <div className="text-xs text-muted">Pool: {poolId}</div>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted">
-          <span>
-            {draftOpen
-              ? "Tournament scores refresh automatically every 30 seconds while this tab is open."
-              : "Draft is locked. Auto-refresh is paused until the draft is opened from Admin."}
-          </span>
+          <span>Tournament scores refresh automatically every 30 seconds while this tab is open.</span>
           <span>Last updated: {formatLastUpdated(lastUpdated)}</span>
         </div>
       </section>

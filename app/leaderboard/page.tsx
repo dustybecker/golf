@@ -54,7 +54,7 @@ export default function PlayerLeaderboardPage() {
     (item) => item.tournament_slug === selectedTournament
   );
   const draftOpen = selectedTournamentMeta?.draft_active_now ?? false;
-  const refreshTick = useAutoRefreshValue(30000, draftOpen);
+  const refreshTick = useAutoRefreshValue(30000, true);
 
   function formatToPar(value: number) {
     if (value === 0) return "E";
@@ -189,11 +189,7 @@ export default function PlayerLeaderboardPage() {
           <div className="text-xs text-muted">Pool: {poolId}</div>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted">
-          <span>
-            {draftOpen
-              ? "Leaderboard refreshes automatically every 30 seconds while this tab is open."
-              : "Draft is locked. Auto-refresh is paused until the draft is opened from Admin."}
-          </span>
+          <span>Leaderboard refreshes automatically every 30 seconds while this tab is open.</span>
           <span>Last updated: {formatLastUpdated(lastUpdated)}</span>
         </div>
       </section>
