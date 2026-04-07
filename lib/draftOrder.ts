@@ -5,7 +5,7 @@ export const EXPECTED_ENTRANT_COUNT = 9;
 export const TURN_DURATION_SECONDS = 60 * 60 * 2;
 export const DRAFT_TIME_ZONE = "America/Los_Angeles";
 export const DRAFT_OPEN_HOUR = 9;
-export const DRAFT_CLOSE_HOUR = 21;
+export const DRAFT_CLOSE_HOUR = 23;
 
 export type DraftEntrantOrderRow = {
   entrant_id: string;

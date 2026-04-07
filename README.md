@@ -25,11 +25,15 @@ API:
 - `/api/auth/entrant-login`
 - `/api/auth/logout`
 - `/api/admin/entrant-code`
+- `/api/admin/draft-state`
+- `/api/admin/draft-reset`
+- `/api/admin/entrant-auto-draft`
 - `/api/golfers`
 - `/api/draft-picks`
 - `/api/draft-picks/add`
 - `/api/draft-picks/remove`
 - `/api/draft-picks/reset`
+- `/api/draft-state`
 - `/api/leaderboards/player`
 - `/api/leaderboards/tournament`
 - `/api/tournament-meta`
@@ -73,6 +77,8 @@ Run the SQL setup in Supabase:
 - [supabase/golfers_schema.sql](C:\Users\dusty\playoff-pool-main\supabase\golfers_schema.sql)
 - [supabase/entrant_auth_schema.sql](C:\Users\dusty\playoff-pool-main\supabase\entrant_auth_schema.sql)
 - [supabase/scoring_schema.sql](C:\Users\dusty\playoff-pool-main\supabase\scoring_schema.sql)
+- [supabase/draft_lock_patch.sql](C:\Users\dusty\playoff-pool-main\supabase\draft_lock_patch.sql)
+- [supabase/draft_turns_patch.sql](C:\Users\dusty\playoff-pool-main\supabase\draft_turns_patch.sql)
 
 Then start the app:
 
@@ -100,12 +106,20 @@ npm.cmd run dev
 - `/draft` is the entrant-facing draft room
 - golfers are loaded from `public.golfers`
 - picks are loaded from `public.draft_picks`
-- each entrant can only edit their own picks
-- golfers lock across the whole pool once drafted
+- each entrant can only draft for themselves
+- drafted golfers disappear from the visible board
+- draft order is a fixed 9-entrant snake draft based on `draft_position`
+- only the entrant currently on the clock can make a manual pick
+- entrants can toggle their own auto-draft setting from the Draft page
+- if a timer expires, that entrant is automatically flipped to auto-draft
+- the countdown is shown as `HH:MM:SS`
 
 ### Admin
 
 - `/admin` is the commissioner page
+- `Draft Controls`
+  - manually open / lock the draft
+  - full `Reset To Pre-Draft`
 - `Odds And Handicap Sync`
   - use before the draft
   - preview odds-derived handicaps
@@ -113,6 +127,7 @@ npm.cmd run dev
 - `Entrant Access`
   - generate or reset player codes
   - send the invite link + generated code
+  - toggle auto-draft for any entrant
 - `Tournament Score Sync`
   - search Slash Golf schedules
   - select a tournament
@@ -152,6 +167,13 @@ npm.cmd run dev
 - `golfer`
 - `pick_number`
 
+### `public.draft_state`
+
+- current snake draft pointer
+- current round
+- current entrant on the clock
+- turn timing
+
 ### `public.tournament_meta`
 
 - `pool_id`
@@ -177,9 +199,13 @@ npm.cmd run dev
   - `2026-majors-pga-championship`
 - Slash Golf is the live scoring source
 - The Odds API is the handicap source
+- the draft currently expects exactly `9` entrants
+- the draft timer is `2 hours`
+- the draft is effectively active only from `9AM` to `9PM` Pacific
+- timers pause overnight instead of expiring while people are away
 - lightweight polling is implemented:
   - Home `30s`
-  - Draft `15s`
+  - Draft `30s`
   - Player leaderboard `30s`
   - Tournament leaderboard `30s`
 
@@ -201,6 +227,7 @@ Before shipping:
 6. Confirm Slash Golf and The Odds API plan limits are sufficient.
 7. Do a final mobile check on Home, Draft, Admin, and both leaderboard pages.
 8. Verify the polling cadence feels acceptable during live use.
+9. If you run a simulated draft, use `Reset To Pre-Draft` before the real draft.
 
 ## Handoff
 

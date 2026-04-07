@@ -13,6 +13,9 @@ type TournamentMetaRow = {
   tournament_slug: string;
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const poolId =
@@ -54,6 +57,10 @@ export async function GET(req: Request) {
       is_complete: summary.is_complete,
       turn_started_at: summary.turn_started_at,
       turn_expires_at: summary.turn_expires_at,
+    }, {
+      headers: {
+        "Cache-Control": "no-store, max-age=0",
+      },
     });
   } catch (error: unknown) {
     return NextResponse.json(

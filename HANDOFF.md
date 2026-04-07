@@ -17,6 +17,7 @@ The app supports:
 - turn-based 9-entrant snake draft
 - self-service and admin-controlled auto-draft
 - pre-draft reset controls
+- overnight draft pause window
 - odds-based handicap sync
 - live tournament score sync
 - player and tournament leaderboards
@@ -130,6 +131,7 @@ Tables in active use:
 - entrant-facing page
 - requires sign-in from Home for actual pick actions
 - golfers lock globally within the current pool
+- golfer table now shows only undrafted golfers
 - draft is globally open/locked from Admin
 - draft order is a fixed 9-entrant snake draft using `draft_position`
 - current turn is enforced server-side
@@ -213,6 +215,13 @@ Current behavior:
   - they are automatically switched to `auto_draft_enabled = true`
   - the engine immediately continues and auto-picks for them
 - current turn duration is `2 hours`
+- countdown is displayed on the Draft page as `HH:MM:SS`
+- draft only actively runs from `9:00 AM` to `9:00 PM` Pacific
+- outside that Pacific window:
+  - the draft remains manually open in metadata if the commissioner left it open
+  - but draft actions are treated as paused
+  - the timer does not continue counting down through the night
+  - auto-draft does not keep running while players are asleep
 - when the full draft completes:
   - `tournament_meta.draft_open` is set to `false`
   - live polling stops because the draft becomes locked
@@ -224,6 +233,7 @@ Current behavior:
 Important implementation note:
 
 - the turn engine was fixed after a bug where a manual pick could leave the same entrant on the clock; `advanceDraftState()` now advances the pointer when a real pick has already been consumed for the current slot
+- later, a stale GET issue was also found where the Draft page could keep showing the prior drafter until a hard refresh; draft state and picks routes were moved to `no-store` behavior to avoid stale on-clock UI
 
 ## Auto Refresh
 
@@ -236,7 +246,10 @@ Polling is implemented on the main live views:
 
 Each page also shows a visible "Last updated" timestamp after successful refreshes.
 
-Polling only runs while the relevant tournament pool has `draft_open = true`.
+Polling only runs while the relevant tournament pool is effectively active:
+
+- manually opened by the commissioner
+- and within the daily `9AM-9PM` Pacific draft window
 
 ## External Services
 
@@ -388,6 +401,23 @@ The deploy error was:
 - [app/api/admin/draft-reset/route.ts](C:\Users\dusty\playoff-pool-main\app\api\admin\draft-reset\route.ts) referenced `summary.expected_entrant_count`
 - `DraftStateSummary` does not contain that field
 - fix was to return `EXPECTED_ENTRANT_COUNT` instead
+
+Later deployed draft UX / state commits:
+
+- `b193137` `Pause draft overnight and align live polling`
+- `8c8d188` `Format draft timer as hh:mm:ss`
+- `ebb8c5b` `Hide drafted golfers from draft board`
+
+Notes on those changes:
+
+- `b193137`
+  - added the Pacific `9AM-9PM` draft window
+  - timer now pauses overnight instead of expiring
+  - live pages poll only while draft is effectively active
+- `8c8d188`
+  - Draft page timer display changed from raw seconds to `HH:MM:SS`
+- `ebb8c5b`
+  - drafted golfers are hidden from the Draft table rather than shown as locked rows
 
 ## Recommended Next Steps
 
