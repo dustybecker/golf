@@ -103,7 +103,8 @@ export default function TournamentLeaderboardPage() {
 
       try {
         const res = await fetch(
-          `/api/leaderboards/tournament?pool_id=${encodeURIComponent(poolId)}&tournament=${encodeURIComponent(selectedTournament)}`
+          `/api/leaderboards/tournament?pool_id=${encodeURIComponent(poolId)}&tournament=${encodeURIComponent(selectedTournament)}`,
+          { cache: "no-store" }
         );
         const json = await res.json();
         if (!res.ok) throw new Error(json?.error ?? "Failed to load tournament leaderboard");
