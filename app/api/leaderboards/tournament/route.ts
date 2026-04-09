@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { calculateTournamentLeaderboard } from "@/lib/scoring";
 import { getErrorMessage } from "@/lib/error";
 import {
   fetchSlashLeaderboard,
@@ -27,22 +26,10 @@ export async function GET(req: Request) {
   }
 
   try {
-    const { count: syncedScoreCount, error: scoreCountError } = await supabaseAdmin
-      .from("tournament_round_scores")
-      .select("*", { count: "exact", head: true })
-      .eq("pool_id", poolId)
-      .eq("tournament_slug", tournament);
-
-    if (scoreCountError) {
-      throw new Error(scoreCountError.message);
-    }
-
-    const rows = await calculateTournamentLeaderboard(poolId, tournament);
-
     const apiKey = process.env.SLASH_GOLF_API_KEY || process.env.RAPIDAPI_KEY;
     if (!apiKey) {
       return NextResponse.json(
-        { ok: true, poolId, tournament, source: "synced", rows },
+        { ok: true, poolId, tournament, source: "unavailable", mode: "live-only-v2", rows: [] },
         {
           headers: {
             "Cache-Control": "no-store, max-age=0",
@@ -54,7 +41,7 @@ export async function GET(req: Request) {
     const tournamentId = await resolveSlashTournamentId(apiKey, tournament, year);
     if (!tournamentId) {
       return NextResponse.json(
-        { ok: true, poolId, tournament, source: "synced", rows },
+        { ok: true, poolId, tournament, source: "unavailable", mode: "live-only-v2", rows: [] },
         {
           headers: {
             "Cache-Control": "no-store, max-age=0",
@@ -123,6 +110,7 @@ export async function GET(req: Request) {
         poolId,
         tournament,
         source: "slash-live",
+        mode: "live-only-v2",
         tournament_id: tournamentId,
         rows: liveRows,
       }, {
@@ -132,22 +120,12 @@ export async function GET(req: Request) {
       });
     }
 
-    if ((syncedScoreCount ?? 0) > 0) {
-      return NextResponse.json(
-        { ok: true, poolId, tournament, source: "synced", rows },
-        {
-          headers: {
-            "Cache-Control": "no-store, max-age=0",
-          },
-        }
-      );
-    }
-
     return NextResponse.json({
       ok: true,
       poolId,
       tournament,
       source: "slash-live",
+      mode: "live-only-v2",
       tournament_id: tournamentId,
       rows: liveRows,
     }, {
