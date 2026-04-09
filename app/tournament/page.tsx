@@ -9,13 +9,16 @@ type TournamentRow = {
   golfer: string;
   handicap: number;
   rank: number | null;
-  gross_total: number;
+  gross_total: number | null;
+  live_total_to_par?: number | null;
+  live_current_round_score?: number | null;
+  live_thru?: string | null;
   position: number | null;
   position_text: string | null;
   drafted_by: string[];
   rounds: Array<{
     round_number: number;
-    strokes: number;
+    strokes: number | null;
     score_status: string;
   }>;
 };
@@ -45,14 +48,20 @@ export default function TournamentLeaderboardPage() {
   const selectedTournamentMeta = availableTournaments.find(
     (item) => item.tournament_slug === selectedTournament
   );
-  const draftOpen = selectedTournamentMeta?.draft_active_now ?? false;
   const pollingActive = isTournamentPollingActive(selectedTournament as TournamentSlug);
   const refreshTick = useAutoRefreshValue(60000, pollingActive);
 
-  function formatToPar(grossTotal: number, roundsPlayed: number) {
+  function formatToPar(row: TournamentRow) {
+    if (row.gross_total === null || row.rounds.length === 0) {
+      if (row.live_total_to_par === 0) return "E";
+      if (typeof row.live_total_to_par === "number") {
+        return row.live_total_to_par > 0 ? `+${row.live_total_to_par}` : `${row.live_total_to_par}`;
+      }
+      return "-";
+    }
     const roundPar = selectedTournamentMeta?.round_par ?? 72;
-    const totalPar = roundsPlayed * roundPar;
-    const delta = grossTotal - totalPar;
+    const totalPar = row.rounds.length * roundPar;
+    const delta = row.gross_total - totalPar;
     if (delta === 0) return "E";
     return delta > 0 ? `+${delta}` : `${delta}`;
   }
@@ -195,17 +204,30 @@ export default function TournamentLeaderboardPage() {
                     <td className="px-3 py-3">
                       <div className="font-medium">{row.golfer}</div>
                       <div className="text-xs text-muted">Rank {row.rank ?? "-"}</div>
+                      {row.live_thru && (
+                        <div className="text-xs text-muted">
+                          Thru {row.live_thru}
+                          {typeof row.live_current_round_score === "number"
+                            ? ` | Rnd ${row.live_current_round_score > 0 ? `+${row.live_current_round_score}` : row.live_current_round_score}`
+                            : ""}
+                        </div>
+                      )}
                     </td>
-                    <td className="px-3 py-3 text-right">{row.gross_total}</td>
+                    <td className="px-3 py-3 text-right">{row.gross_total ?? "-"}</td>
                     <td className="px-3 py-3 text-right font-semibold">
-                      {formatToPar(row.gross_total, row.rounds.length)}
+                      {formatToPar(row)}
                     </td>
-                    {row.rounds.map((round) => (
-                      <td key={`${row.golfer}-${round.round_number}`} className="px-3 py-3 text-right">
-                        <div>{round.strokes}</div>
-                        <div className="text-[11px] uppercase text-muted">{round.score_status}</div>
-                      </td>
-                    ))}
+                    {[1, 2, 3, 4].map((roundNumber) => {
+                      const round = row.rounds.find((entry) => entry.round_number === roundNumber) ?? null;
+                      return (
+                        <td key={`${row.golfer}-${roundNumber}`} className="px-3 py-3 text-right">
+                          <div>{round?.strokes ?? "-"}</div>
+                          <div className="text-[11px] uppercase text-muted">
+                            {round?.score_status ?? ""}
+                          </div>
+                        </td>
+                      );
+                    })}
                     <td className="px-3 py-3 text-xs text-muted">
                       {row.drafted_by.length > 0 ? row.drafted_by.join(", ") : "Undrafted"}
                     </td>

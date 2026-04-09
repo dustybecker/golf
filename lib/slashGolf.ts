@@ -48,11 +48,20 @@ export type SlashLeaderboardRow = {
   position_text: string | null;
   total_to_par: number | null;
   total_strokes: number | null;
+  thru: string | null;
+  current_round_score: number | null;
   rounds: Array<{
     round_number: number;
     strokes: number | null;
     score_status: "played" | "cut" | "wd";
   }>;
+};
+
+const TOURNAMENT_NAME_MATCHERS: Record<string, string[]> = {
+  masters: ["masters tournament", "the masters", "masters"],
+  "pga-championship": ["pga championship"],
+  "us-open": ["u.s. open", "us open"],
+  "the-open": ["the open championship", "the open"],
 };
 
 const DEFAULT_HOSTS = ["live-golf-data.p.rapidapi.com"];
@@ -262,6 +271,8 @@ export async function fetchSlashLeaderboard(apiKey: string, tournId: string, yea
         total_strokes:
           coerceNumber(player.totalStrokes) ??
           coerceNumber(player.totalStrokesFromCompletedRounds),
+        thru: player.thru == null ? null : String(player.thru),
+        current_round_score: coerceNumber(player.currentRoundScore),
         rounds: roundsSource
           .map((round, index) => ({
             round_number:
@@ -284,4 +295,21 @@ export async function fetchSlashLeaderboard(apiKey: string, tournId: string, yea
     rows,
     raw: result.json,
   };
+}
+
+export async function resolveSlashTournamentId(
+  apiKey: string,
+  tournamentSlug: string,
+  year: string
+) {
+  const matchers = TOURNAMENT_NAME_MATCHERS[tournamentSlug] ?? [tournamentSlug];
+  const schedule = await fetchSlashSchedules(apiKey, year);
+  const normalizedMatchers = matchers.map((value) => value.toLowerCase());
+
+  const match = schedule.tournaments.find((tournament) => {
+    const name = tournament.name.toLowerCase();
+    return normalizedMatchers.some((matcher) => name.includes(matcher));
+  });
+
+  return match ? String(match.tournId).padStart(3, "0") : null;
 }
