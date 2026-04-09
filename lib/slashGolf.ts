@@ -107,6 +107,13 @@ function parseGolfScore(value: unknown) {
 
 export function normalizeGolferName(value: string) {
   return value
+    .replace(/[Øø]/g, "o")
+    .replace(/[Ææ]/g, "ae")
+    .replace(/[Œœ]/g, "oe")
+    .replace(/[Ðð]/g, "d")
+    .replace(/[Þþ]/g, "th")
+    .replace(/[Łł]/g, "l")
+    .replace(/[ß]/g, "ss")
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-zA-Z0-9 ]+/g, " ")
