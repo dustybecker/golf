@@ -8,13 +8,17 @@ import { formatLastUpdated, useAutoRefreshValue } from "@/lib/useAutoRefresh";
 type ScoringGolfer = {
   golfer: string;
   handicap: number;
-  gross_total: number;
-  net_total: number;
+  gross_total: number | null;
+  net_total: number | null;
+  live_total_to_par?: number | null;
+  live_net_to_par?: number | null;
+  live_current_round_score?: number | null;
+  live_thru?: string | null;
   position: number | null;
   position_text: string | null;
   rounds: Array<{
     round_number: number;
-    strokes: number;
+    strokes: number | null;
     score_status: string;
   }>;
 };
@@ -53,7 +57,6 @@ export default function PlayerLeaderboardPage() {
   const selectedTournamentMeta = availableTournaments.find(
     (item) => item.tournament_slug === selectedTournament
   );
-  const draftOpen = selectedTournamentMeta?.draft_active_now ?? false;
   const pollingActive = isTournamentPollingActive(selectedTournament as TournamentSlug);
   const refreshTick = useAutoRefreshValue(60000, pollingActive);
 
@@ -63,15 +66,21 @@ export default function PlayerLeaderboardPage() {
   }
 
   function golferToPar(golfer: ScoringGolfer) {
+    if (typeof golfer.live_net_to_par === "number") {
+      return Math.round(golfer.live_net_to_par);
+    }
     const roundPar = selectedTournamentMeta?.round_par ?? 72;
     const totalPar = golfer.rounds.length * roundPar;
-    return Math.round(golfer.net_total - totalPar);
+    return Math.round((golfer.net_total ?? 0) - totalPar);
   }
 
   function golferGrossToPar(golfer: ScoringGolfer) {
+    if (typeof golfer.live_total_to_par === "number") {
+      return Math.round(golfer.live_total_to_par);
+    }
     const roundPar = selectedTournamentMeta?.round_par ?? 72;
     const totalPar = golfer.rounds.length * roundPar;
-    return Math.round(golfer.gross_total - totalPar);
+    return Math.round((golfer.gross_total ?? 0) - totalPar);
   }
 
   function teamToPar(row: PlayerLeaderboardRow) {
@@ -295,6 +304,14 @@ export default function PlayerLeaderboardPage() {
                           <div className="text-xs text-muted">
                             Gross {formatToPar(golferGrossToPar(golfer))} | Hdcp -{Math.round(golfer.handicap)}
                           </div>
+                          {golfer.live_thru && (
+                            <div className="text-xs text-muted">
+                              Thru {golfer.live_thru}
+                              {typeof golfer.live_current_round_score === "number"
+                                ? ` | Rnd ${golfer.live_current_round_score > 0 ? `+${golfer.live_current_round_score}` : golfer.live_current_round_score}`
+                                : ""}
+                            </div>
+                          )}
                         </div>
                         <div className="text-right">
                           <div className="font-semibold">{formatToPar(golferToPar(golfer))}</div>
@@ -318,6 +335,14 @@ export default function PlayerLeaderboardPage() {
                           <div className="text-xs text-muted">
                             Gross {formatToPar(golferGrossToPar(golfer))} | Hdcp -{Math.round(golfer.handicap)}
                           </div>
+                          {golfer.live_thru && (
+                            <div className="text-xs text-muted">
+                              Thru {golfer.live_thru}
+                              {typeof golfer.live_current_round_score === "number"
+                                ? ` | Rnd ${golfer.live_current_round_score > 0 ? `+${golfer.live_current_round_score}` : golfer.live_current_round_score}`
+                                : ""}
+                            </div>
+                          )}
                         </div>
                         <div className="text-right">
                           <div className="font-semibold">{formatToPar(golferToPar(golfer))}</div>
