@@ -60,7 +60,8 @@ export default function PlayerLeaderboardPage() {
   const pollingActive = isTournamentPollingActive(selectedTournament as TournamentSlug);
   const refreshTick = useAutoRefreshValue(60000, pollingActive);
 
-  function formatToPar(value: number) {
+  function formatToPar(value: number | null) {
+    if (value === null || Number.isNaN(value)) return "-";
     if (value === 0) return "E";
     return value > 0 ? `+${value}` : `${value}`;
   }
@@ -69,18 +70,24 @@ export default function PlayerLeaderboardPage() {
     if (typeof golfer.live_net_to_par === "number") {
       return Math.round(golfer.live_net_to_par);
     }
+    if (golfer.net_total === null) {
+      return null;
+    }
     const roundPar = selectedTournamentMeta?.round_par ?? 72;
     const totalPar = golfer.rounds.length * roundPar;
-    return Math.round((golfer.net_total ?? 0) - totalPar);
+    return Math.round(golfer.net_total - totalPar);
   }
 
   function golferGrossToPar(golfer: ScoringGolfer) {
     if (typeof golfer.live_total_to_par === "number") {
       return Math.round(golfer.live_total_to_par);
     }
+    if (golfer.gross_total === null) {
+      return null;
+    }
     const roundPar = selectedTournamentMeta?.round_par ?? 72;
     const totalPar = golfer.rounds.length * roundPar;
-    return Math.round((golfer.gross_total ?? 0) - totalPar);
+    return Math.round(golfer.gross_total - totalPar);
   }
 
   function teamToPar(row: PlayerLeaderboardRow) {
