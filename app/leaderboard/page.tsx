@@ -100,6 +100,20 @@ export default function PlayerLeaderboardPage() {
   const selectedEntrantRow =
     rows.find((row) => row.entrant_name === selectedEntrant) ?? rows[0] ?? null;
 
+  function displayedGrossToPar(golfer: ScoringGolfer) {
+    if (typeof golfer.live_total_to_par === "number") {
+      return Math.round(golfer.live_total_to_par);
+    }
+    return golferGrossToPar(golfer);
+  }
+
+  function displayedNetToPar(golfer: ScoringGolfer) {
+    if (typeof golfer.live_total_to_par === "number") {
+      return Math.round(golfer.live_total_to_par - golfer.handicap);
+    }
+    return golferToPar(golfer);
+  }
+
   useEffect(() => {
     let cancelled = false;
 
@@ -312,7 +326,7 @@ export default function PlayerLeaderboardPage() {
                         <div>
                           <div className="font-medium">{golfer.golfer}</div>
                           <div className="text-xs text-muted">
-                            Gross {formatToPar(golferGrossToPar(golfer))} | Hdcp -{Math.round(golfer.handicap)}
+                            Gross {formatToPar(displayedGrossToPar(golfer))} | Hdcp -{Math.round(golfer.handicap)}
                           </div>
                           {golfer.live_thru && (
                             <div className="text-xs text-muted">
@@ -324,7 +338,7 @@ export default function PlayerLeaderboardPage() {
                           )}
                         </div>
                         <div className="text-right">
-                          <div className="font-semibold">{formatToPar(golferToPar(golfer))}</div>
+                          <div className="font-semibold">{formatToPar(displayedNetToPar(golfer))}</div>
                           <div className="text-xs text-muted">{golfer.position_text ?? golfer.position ?? "-"}</div>
                         </div>
                       </div>
@@ -343,7 +357,7 @@ export default function PlayerLeaderboardPage() {
                         <div>
                           <div className="font-medium">{golfer.golfer}</div>
                           <div className="text-xs text-muted">
-                            Gross {formatToPar(golferGrossToPar(golfer))} | Hdcp -{Math.round(golfer.handicap)}
+                            Gross {formatToPar(displayedGrossToPar(golfer))} | Hdcp -{Math.round(golfer.handicap)}
                           </div>
                           {golfer.live_thru && (
                             <div className="text-xs text-muted">
@@ -355,7 +369,7 @@ export default function PlayerLeaderboardPage() {
                           )}
                         </div>
                         <div className="text-right">
-                          <div className="font-semibold">{formatToPar(golferToPar(golfer))}</div>
+                          <div className="font-semibold">{formatToPar(displayedNetToPar(golfer))}</div>
                           <div className="text-xs text-muted">{golfer.position_text ?? golfer.position ?? "-"}</div>
                         </div>
                       </div>
