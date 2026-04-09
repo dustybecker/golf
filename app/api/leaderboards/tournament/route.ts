@@ -11,6 +11,26 @@ import { supabaseAdmin } from "@/lib/supabase";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+function leaderboardPositionValue(position: number | null, positionText: string | null) {
+  if (typeof position === "number") return position;
+  if (positionText) {
+    const match = positionText.match(/\d+/);
+    if (match) {
+      const parsed = Number(match[0]);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return 9999;
+}
+
+function thruSortValue(thru: string | null | undefined) {
+  const normalized = String(thru ?? "").trim().toUpperCase();
+  if (!normalized) return -1;
+  if (normalized === "F") return 999;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : -1;
+}
+
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const poolId =
@@ -102,6 +122,20 @@ export async function GET(req: Request) {
           score_status: round.score_status,
         })),
       };
+    }).sort((a, b) => {
+      const positionDiff =
+        leaderboardPositionValue(a.position, a.position_text) -
+        leaderboardPositionValue(b.position, b.position_text);
+      if (positionDiff !== 0) return positionDiff;
+
+      const aToPar = a.live_total_to_par ?? 9999;
+      const bToPar = b.live_total_to_par ?? 9999;
+      if (aToPar !== bToPar) return aToPar - bToPar;
+
+      const thruDiff = thruSortValue(b.live_thru) - thruSortValue(a.live_thru);
+      if (thruDiff !== 0) return thruDiff;
+
+      return a.golfer.localeCompare(b.golfer);
     });
 
     if (liveRows.length > 0) {

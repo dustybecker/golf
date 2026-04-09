@@ -52,11 +52,11 @@ export default function TournamentLeaderboardPage() {
   const refreshTick = useAutoRefreshValue(60000, pollingActive);
 
   function formatToPar(row: TournamentRow) {
-    if (row.gross_total === null || row.rounds.length === 0) {
+    if (typeof row.live_total_to_par === "number") {
       if (row.live_total_to_par === 0) return "E";
-      if (typeof row.live_total_to_par === "number") {
-        return row.live_total_to_par > 0 ? `+${row.live_total_to_par}` : `${row.live_total_to_par}`;
-      }
+      return row.live_total_to_par > 0 ? `+${row.live_total_to_par}` : `${row.live_total_to_par}`;
+    }
+    if (row.gross_total === null || row.rounds.length === 0) {
       return "-";
     }
     const roundPar = selectedTournamentMeta?.round_par ?? 72;
