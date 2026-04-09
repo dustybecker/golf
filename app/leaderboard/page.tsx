@@ -70,6 +70,9 @@ export default function PlayerLeaderboardPage() {
     if (typeof golfer.live_net_to_par === "number") {
       return Math.round(golfer.live_net_to_par);
     }
+    if (typeof golfer.live_total_to_par === "number") {
+      return Math.round(golfer.live_total_to_par - golfer.handicap);
+    }
     if (golfer.net_total === null) {
       return null;
     }
