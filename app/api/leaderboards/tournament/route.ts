@@ -19,8 +19,18 @@ export async function GET(req: Request) {
   }
 
   try {
+    const { count: syncedScoreCount, error: scoreCountError } = await supabaseAdmin
+      .from("tournament_round_scores")
+      .select("*", { count: "exact", head: true })
+      .eq("pool_id", poolId)
+      .eq("tournament_slug", tournament);
+
+    if (scoreCountError) {
+      throw new Error(scoreCountError.message);
+    }
+
     const rows = await calculateTournamentLeaderboard(poolId, tournament);
-    if (rows.length > 0) {
+    if ((syncedScoreCount ?? 0) > 0) {
       return NextResponse.json({ ok: true, poolId, tournament, source: "synced", rows });
     }
 
