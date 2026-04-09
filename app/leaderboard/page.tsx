@@ -91,7 +91,7 @@ export default function PlayerLeaderboardPage() {
   }
 
   function teamToPar(row: PlayerLeaderboardRow) {
-    return row.scoring_golfers.reduce((sum, golfer) => sum + golferToPar(golfer), 0);
+    return row.scoring_golfers.reduce((sum, golfer) => sum + (golferToPar(golfer) ?? 0), 0);
   }
 
   const selectedEntrantRow =
