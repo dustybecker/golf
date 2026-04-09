@@ -117,16 +117,7 @@ export async function GET(req: Request) {
       };
     });
 
-    const liveRoundInProgress = liveRows.some((row) => {
-      const thru = (row.live_thru ?? "").trim().toUpperCase();
-      return Boolean(thru) && thru !== "F";
-    });
-
-    const liveRowsNeedFallback = liveRows.some(
-      (row) => row.gross_total === null || row.rounds.length === 0
-    );
-
-    if (liveRows.length > 0 && (liveRoundInProgress || liveRowsNeedFallback)) {
+    if (liveRows.length > 0) {
       return NextResponse.json({
         ok: true,
         poolId,
