@@ -73,6 +73,19 @@ const TOURNAMENTS: TournamentOption[] = [
   { slug: "the-open", label: "The Open Championship" },
 ];
 
+function defaultRoundParForTournament(tournamentSlug: string) {
+  switch (tournamentSlug) {
+    case "masters":
+      return 72;
+    case "the-open":
+      return 71;
+    case "pga-championship":
+    case "us-open":
+    default:
+      return 70;
+  }
+}
+
 export default function AdminPage() {
   const basePoolId = process.env.NEXT_PUBLIC_POOL_ID || "2026-majors";
   const [selectedTournament, setSelectedTournament] = useState<TournamentOption["slug"]>("masters");
@@ -390,7 +403,7 @@ export default function AdminPage() {
           tournament_slug: selectedScoreTournamentSlug.trim(),
           tournament_id: selectedScoreTournamentId,
           year: scoreSeason,
-          round_par: 70,
+          round_par: defaultRoundParForTournament(selectedScoreTournamentSlug.trim()),
         }),
       });
       const json = await res.json();
