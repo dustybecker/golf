@@ -83,6 +83,18 @@ function coerceNumber(value: unknown) {
   return null;
 }
 
+function parseGolfScore(value: unknown) {
+  if (typeof value === "number") return value;
+  if (typeof value !== "string") return null;
+
+  const normalized = value.trim().toUpperCase();
+  if (!normalized) return null;
+  if (normalized === "E") return 0;
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function nameFromPlayer(player: SlashLeaderboardPlayer) {
   const direct = String(player.playerName ?? player.name ?? "").trim();
   if (direct) return direct;
@@ -267,12 +279,12 @@ export async function fetchSlashLeaderboard(apiKey: string, tournId: string, yea
             : typeof player.position === "string"
               ? player.position
               : null,
-        total_to_par: coerceNumber(player.total),
+        total_to_par: parseGolfScore(player.total),
         total_strokes:
           coerceNumber(player.totalStrokes) ??
           coerceNumber(player.totalStrokesFromCompletedRounds),
         thru: player.thru == null ? null : String(player.thru),
-        current_round_score: coerceNumber(player.currentRoundScore),
+        current_round_score: parseGolfScore(player.currentRoundScore),
         rounds: roundsSource
           .map((round, index) => ({
             round_number:
