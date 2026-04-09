@@ -35,9 +35,6 @@ export async function GET(req: Request) {
     }
 
     const rows = await calculateTournamentLeaderboard(poolId, tournament);
-    if ((syncedScoreCount ?? 0) > 0) {
-      return NextResponse.json({ ok: true, poolId, tournament, source: "synced", rows });
-    }
 
     const apiKey = process.env.SLASH_GOLF_API_KEY || process.env.RAPIDAPI_KEY;
     if (!apiKey) {
@@ -102,6 +99,30 @@ export async function GET(req: Request) {
         })),
       };
     });
+
+    const liveRoundInProgress = liveRows.some((row) => {
+      const thru = (row.live_thru ?? "").trim().toUpperCase();
+      return Boolean(thru) && thru !== "F";
+    });
+
+    const liveRowsNeedFallback = liveRows.some(
+      (row) => row.gross_total === null || row.rounds.length === 0
+    );
+
+    if (liveRows.length > 0 && (liveRoundInProgress || liveRowsNeedFallback)) {
+      return NextResponse.json({
+        ok: true,
+        poolId,
+        tournament,
+        source: "slash-live",
+        tournament_id: tournamentId,
+        rows: liveRows,
+      });
+    }
+
+    if ((syncedScoreCount ?? 0) > 0) {
+      return NextResponse.json({ ok: true, poolId, tournament, source: "synced", rows });
+    }
 
     return NextResponse.json({
       ok: true,
