@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { calculatePlayerLeaderboard } from "@/lib/scoring";
 import { getErrorMessage } from "@/lib/error";
-import { fetchSlashLeaderboard, resolveSlashTournamentId } from "@/lib/slashGolf";
+import {
+  fetchSlashLeaderboard,
+  golferLookupKeys,
+  normalizeGolferName,
+  resolveSlashTournamentId,
+} from "@/lib/slashGolf";
 import { supabaseAdmin } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -82,35 +87,52 @@ export async function GET(req: Request) {
     if (picksError) throw new Error(picksError.message);
     if (handicapsError) throw new Error(handicapsError.message);
 
-    const handicapByGolfer = new Map(
-      (handicaps ?? []).map((row) => [
-        row.golfer as string,
-        {
-          handicap: Number(row.handicap ?? 0),
-          rank: row.rank == null ? null : Number(row.rank),
-        },
-      ])
-    );
+    const handicapByGolfer = new Map<string, { handicap: number; rank: number | null }>();
+    for (const row of handicaps ?? []) {
+      const meta = {
+        handicap: Number(row.handicap ?? 0),
+        rank: row.rank == null ? null : Number(row.rank),
+      };
+      for (const key of golferLookupKeys(String(row.golfer))) {
+        handicapByGolfer.set(key, meta);
+      }
+    }
 
     const live = await fetchSlashLeaderboard(apiKey, tournamentId, year);
-    const liveByGolfer = new Map(
-      live.rows.map((row) => [
-        row.golfer,
-        {
-          gross_total: row.total_strokes,
-          live_total_to_par: row.total_to_par,
-          live_current_round_score: row.current_round_score,
-          live_thru: row.thru,
-          position: row.position,
-          position_text: row.position_text,
-          rounds: row.rounds.map((round) => ({
-            round_number: round.round_number,
-            strokes: round.strokes,
-            score_status: round.score_status,
-          })),
-        },
-      ])
-    );
+    const liveByGolfer = new Map<
+      string,
+      {
+        gross_total: number | null;
+        live_total_to_par: number | null;
+        live_current_round_score: number | null;
+        live_thru: string | null;
+        position: number | null;
+        position_text: string | null;
+        rounds: Array<{
+          round_number: number;
+          strokes: number | null;
+          score_status: string;
+        }>;
+      }
+    >();
+    for (const row of live.rows) {
+      const value = {
+        gross_total: row.total_strokes,
+        live_total_to_par: row.total_to_par,
+        live_current_round_score: row.current_round_score,
+        live_thru: row.thru,
+        position: row.position,
+        position_text: row.position_text,
+        rounds: row.rounds.map((round) => ({
+          round_number: round.round_number,
+          strokes: round.strokes,
+          score_status: round.score_status,
+        })),
+      };
+      for (const key of golferLookupKeys(row.golfer)) {
+        liveByGolfer.set(key, value);
+      }
+    }
 
     const picksByEntrant = new Map<string, Array<{ golfer: string; pick_number: number }>>();
     for (const pick of picks ?? []) {
@@ -126,8 +148,9 @@ export async function GET(req: Request) {
     const liveRows = Array.from(picksByEntrant.entries()).map(([entrantName, golferRows]) => {
       const scorecards = golferRows
         .map(({ golfer }) => {
-          const handicapMeta = handicapByGolfer.get(golfer) ?? { handicap: 0, rank: null };
-          const liveScore = liveByGolfer.get(golfer);
+          const normalizedGolfer = normalizeGolferName(golfer);
+          const handicapMeta = handicapByGolfer.get(normalizedGolfer) ?? { handicap: 0, rank: null };
+          const liveScore = liveByGolfer.get(normalizedGolfer);
           const grossToPar = liveScore?.live_total_to_par ?? null;
           const netToPar =
             typeof grossToPar === "number" ? grossToPar - handicapMeta.handicap : null;

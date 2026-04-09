@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { calculateTournamentLeaderboard } from "@/lib/scoring";
 import { getErrorMessage } from "@/lib/error";
-import { fetchSlashLeaderboard, resolveSlashTournamentId } from "@/lib/slashGolf";
+import {
+  fetchSlashLeaderboard,
+  golferLookupKeys,
+  normalizeGolferName,
+  resolveSlashTournamentId,
+} from "@/lib/slashGolf";
 import { supabaseAdmin } from "@/lib/supabase";
 
 export async function GET(req: Request) {
@@ -56,25 +61,29 @@ export async function GET(req: Request) {
     const draftedBy = new Map<string, string[]>();
     for (const pick of picks ?? []) {
       const golfer = pick.golfer as string;
-      const existing = draftedBy.get(golfer) ?? [];
-      existing.push(pick.entrant_name as string);
-      draftedBy.set(golfer, existing);
+      for (const key of golferLookupKeys(golfer)) {
+        const existing = draftedBy.get(key) ?? [];
+        existing.push(pick.entrant_name as string);
+        draftedBy.set(key, existing);
+      }
     }
 
-    const handicapByGolfer = new Map(
-      (handicaps ?? []).map((row) => [
-        row.golfer as string,
-        {
-          handicap: Number(row.handicap ?? 0),
-          rank: row.rank == null ? null : Number(row.rank),
-        },
-      ])
-    );
+    const handicapByGolfer = new Map<string, { handicap: number; rank: number | null }>();
+    for (const row of handicaps ?? []) {
+      const meta = {
+        handicap: Number(row.handicap ?? 0),
+        rank: row.rank == null ? null : Number(row.rank),
+      };
+      for (const key of golferLookupKeys(String(row.golfer))) {
+        handicapByGolfer.set(key, meta);
+      }
+    }
 
     const live = await fetchSlashLeaderboard(apiKey, tournamentId, year);
 
     const liveRows = live.rows.map((row) => {
-      const handicapMeta = handicapByGolfer.get(row.golfer) ?? { handicap: 0, rank: null };
+      const handicapMeta =
+        handicapByGolfer.get(normalizeGolferName(row.golfer)) ?? { handicap: 0, rank: null };
       return {
         golfer: row.golfer,
         handicap: handicapMeta.handicap,
@@ -85,7 +94,7 @@ export async function GET(req: Request) {
         live_thru: row.thru,
         position: row.position,
         position_text: row.position_text,
-        drafted_by: draftedBy.get(row.golfer) ?? [],
+        drafted_by: draftedBy.get(normalizeGolferName(row.golfer)) ?? [],
         rounds: row.rounds.map((round) => ({
           round_number: round.round_number,
           strokes: round.strokes,

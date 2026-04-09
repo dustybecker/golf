@@ -64,6 +64,16 @@ const TOURNAMENT_NAME_MATCHERS: Record<string, string[]> = {
   "the-open": ["the open championship", "the open"],
 };
 
+const GOLFER_NAME_ALIASES: Record<string, string> = {
+  "nicolai hojgaard": "nicolai hojgaard",
+  "rasmus hojgaard": "rasmus hojgaard",
+  "ludvig aberg": "ludvig aberg",
+  "maverick mcnealy": "maverick mcnealy",
+  "matt fitzpatrick": "matthew fitzpatrick",
+  "chris gotterup": "christopher gotterup",
+  "alex noren": "alexander noren",
+};
+
 const DEFAULT_HOSTS = ["live-golf-data.p.rapidapi.com"];
 
 function getHosts() {
@@ -93,6 +103,22 @@ function parseGolfScore(value: unknown) {
 
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function normalizeGolferName(value: string) {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9 ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+export function golferLookupKeys(value: string) {
+  const normalized = normalizeGolferName(value);
+  const alias = GOLFER_NAME_ALIASES[normalized];
+  return Array.from(new Set([normalized, alias].filter((entry): entry is string => Boolean(entry))));
 }
 
 function nameFromPlayer(player: SlashLeaderboardPlayer) {
