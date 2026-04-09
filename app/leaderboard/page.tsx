@@ -119,7 +119,9 @@ export default function PlayerLeaderboardPage() {
 
     async function loadTournamentOptions() {
       try {
-        const res = await fetch(`/api/tournament-meta?pool_id=${encodeURIComponent(poolId)}`);
+        const res = await fetch(`/api/tournament-meta?pool_id=${encodeURIComponent(poolId)}`, {
+          cache: "no-store",
+        });
         const json = await res.json();
         if (!res.ok) throw new Error(json?.error ?? "Failed to load tournament metadata");
         const rows = (json.rows ?? []) as TournamentMetaOption[];
@@ -151,7 +153,8 @@ export default function PlayerLeaderboardPage() {
 
       try {
         const res = await fetch(
-          `/api/leaderboards/player?pool_id=${encodeURIComponent(poolId)}&tournament=${encodeURIComponent(selectedTournament)}`
+          `/api/leaderboards/player?pool_id=${encodeURIComponent(poolId)}&tournament=${encodeURIComponent(selectedTournament)}`,
+          { cache: "no-store" }
         );
         const json = await res.json();
         if (!res.ok) throw new Error(json?.error ?? "Failed to load player leaderboard");

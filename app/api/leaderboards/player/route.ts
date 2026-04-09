@@ -4,6 +4,9 @@ import { getErrorMessage } from "@/lib/error";
 import { fetchSlashLeaderboard, resolveSlashTournamentId } from "@/lib/slashGolf";
 import { supabaseAdmin } from "@/lib/supabase";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const poolId =
@@ -31,17 +34,38 @@ export async function GET(req: Request) {
 
     const rows = await calculatePlayerLeaderboard(poolId, tournament);
     if ((syncedScoreCount ?? 0) > 0) {
-      return NextResponse.json({ ok: true, poolId, tournament, source: "synced", rows });
+      return NextResponse.json(
+        { ok: true, poolId, tournament, source: "synced", rows },
+        {
+          headers: {
+            "Cache-Control": "no-store, max-age=0",
+          },
+        }
+      );
     }
 
     const apiKey = process.env.SLASH_GOLF_API_KEY || process.env.RAPIDAPI_KEY;
     if (!apiKey) {
-      return NextResponse.json({ ok: true, poolId, tournament, source: "synced", rows });
+      return NextResponse.json(
+        { ok: true, poolId, tournament, source: "synced", rows },
+        {
+          headers: {
+            "Cache-Control": "no-store, max-age=0",
+          },
+        }
+      );
     }
 
     const tournamentId = await resolveSlashTournamentId(apiKey, tournament, year);
     if (!tournamentId) {
-      return NextResponse.json({ ok: true, poolId, tournament, source: "synced", rows });
+      return NextResponse.json(
+        { ok: true, poolId, tournament, source: "synced", rows },
+        {
+          headers: {
+            "Cache-Control": "no-store, max-age=0",
+          },
+        }
+      );
     }
 
     const [{ data: picks, error: picksError }, { data: handicaps, error: handicapsError }] =
@@ -160,14 +184,21 @@ export async function GET(req: Request) {
       return a6 - b6;
     });
 
-    return NextResponse.json({
-      ok: true,
-      poolId,
-      tournament,
-      source: "slash-live",
-      tournament_id: tournamentId,
-      rows: liveRows,
-    });
+    return NextResponse.json(
+      {
+        ok: true,
+        poolId,
+        tournament,
+        source: "slash-live",
+        tournament_id: tournamentId,
+        rows: liveRows,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, max-age=0",
+        },
+      }
+    );
   } catch (error: unknown) {
     return NextResponse.json(
       { error: getErrorMessage(error, "Failed to calculate player leaderboard.") },
