@@ -50,19 +50,31 @@ export async function GET(req: Request) {
       );
     }
 
-    const [{ data: picks, error: picksError }, { data: handicaps, error: handicapsError }] =
-      await Promise.all([
-        supabaseAdmin
-          .from("draft_picks")
-          .select("entrant_name, golfer, pick_number")
-          .eq("pool_id", poolId)
-          .order("entrant_name", { ascending: true })
-          .order("pick_number", { ascending: true }),
-        supabaseAdmin.from("golfers").select("golfer, handicap, rank").eq("pool_id", poolId),
-      ]);
+    const [
+      { data: picks, error: picksError },
+      { data: handicaps, error: handicapsError },
+      { data: meta, error: metaError },
+    ] = await Promise.all([
+      supabaseAdmin
+        .from("draft_picks")
+        .select("entrant_name, golfer, pick_number")
+        .eq("pool_id", poolId)
+        .order("entrant_name", { ascending: true })
+        .order("pick_number", { ascending: true }),
+      supabaseAdmin.from("golfers").select("golfer, handicap, rank").eq("pool_id", poolId),
+      supabaseAdmin
+        .from("tournament_meta")
+        .select("round_par")
+        .eq("pool_id", poolId)
+        .eq("tournament_slug", tournament)
+        .maybeSingle<{ round_par: number | null }>(),
+    ]);
 
     if (picksError) throw new Error(picksError.message);
     if (handicapsError) throw new Error(handicapsError.message);
+    if (metaError) throw new Error(metaError.message);
+
+    const roundPar = meta?.round_par ?? 72;
 
     const handicapByGolfer = new Map<string, { handicap: number; rank: number | null }>();
     for (const row of handicaps ?? []) {
@@ -122,15 +134,56 @@ export async function GET(req: Request) {
       picksByEntrant.set(entrantName, existing);
     }
 
+    // Compute started rounds and field-worst per round for cut/WD penalties
+    const startedRoundNums = Array.from(
+      new Set(live.rows.flatMap((r) => r.rounds.map((round) => round.round_number)))
+    ).sort((a, b) => a - b);
+
+    const fieldWorstByRound = new Map<number, number>();
+    for (const roundNum of startedRoundNums) {
+      const strokes = live.rows
+        .flatMap((r) => r.rounds)
+        .filter((r) => r.round_number === roundNum && r.strokes !== null)
+        .map((r) => r.strokes as number);
+      fieldWorstByRound.set(roundNum, strokes.length > 0 ? Math.max(...strokes) : roundPar + 10);
+    }
+
     const liveRows = Array.from(picksByEntrant.entries()).map(([entrantName, golferRows]) => {
       const scorecards = golferRows
         .map(({ golfer }) => {
           const normalizedGolfer = normalizeGolferName(golfer);
           const handicapMeta = handicapByGolfer.get(normalizedGolfer) ?? { handicap: 0, rank: null };
           const liveScore = liveByGolfer.get(normalizedGolfer);
-          const grossToPar = liveScore?.live_total_to_par ?? null;
-          const netToPar =
-            typeof grossToPar === "number" ? grossToPar - handicapMeta.handicap : null;
+          const rawGrossToPar = liveScore?.live_total_to_par ?? null;
+
+          // Apply cut/WD penalties for rounds the golfer didn't play
+          const playerStatus = liveScore?.rounds[0]?.score_status ?? "played";
+          const penaltyRounds: Array<{ round_number: number; strokes: number; score_status: string }> = [];
+          let penaltyToPar = 0;
+
+          if (liveScore && (playerStatus === "cut" || playerStatus === "wd")) {
+            const playedRoundNums = new Set(liveScore.rounds.map((r) => r.round_number));
+            for (const roundNum of startedRoundNums) {
+              if (!playedRoundNums.has(roundNum)) {
+                let penaltyStrokes: number;
+                if (playerStatus === "wd") {
+                  penaltyStrokes = roundPar + 8;
+                  penaltyToPar += 8;
+                } else {
+                  const fieldWorst = fieldWorstByRound.get(roundNum) ?? roundPar + 10;
+                  penaltyStrokes = fieldWorst;
+                  penaltyToPar += fieldWorst - roundPar;
+                }
+                penaltyRounds.push({ round_number: roundNum, strokes: penaltyStrokes, score_status: playerStatus });
+              }
+            }
+          }
+
+          const grossToPar = rawGrossToPar !== null ? rawGrossToPar + penaltyToPar : null;
+          const netToPar = typeof grossToPar === "number" ? grossToPar - handicapMeta.handicap : null;
+          const allRounds = [...(liveScore?.rounds ?? []), ...penaltyRounds].sort(
+            (a, b) => a.round_number - b.round_number
+          );
 
           return {
             golfer,
@@ -144,7 +197,7 @@ export async function GET(req: Request) {
             live_thru: liveScore?.live_thru ?? null,
             position: liveScore?.position ?? null,
             position_text: liveScore?.position_text ?? null,
-            rounds: liveScore?.rounds ?? [],
+            rounds: allRounds,
           };
         })
         .sort((a, b) => {
