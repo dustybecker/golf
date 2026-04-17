@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getErrorMessage } from "@/lib/error";
+import AdminEventFinalizer from "@/components/AdminEventFinalizer";
 
 type TournamentOption = {
   slug: "masters" | "pga-championship" | "us-open" | "the-open";
@@ -418,6 +419,7 @@ export default function AdminPage() {
 
   return (
     <main className="space-y-6">
+      <AdminEventFinalizer />
       <section className="rounded-3xl border border-border bg-surface px-6 py-8">
         <p className="text-xs uppercase tracking-[0.24em] text-muted">Admin</p>
         <h1 className="mt-2 text-3xl font-semibold">Commissioner Tools</h1>

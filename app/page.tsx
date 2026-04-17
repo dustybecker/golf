@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { getErrorMessage } from "@/lib/error";
 import { formatLastUpdated, useAutoRefreshValue } from "@/lib/useAutoRefresh";
+import SeasonBoard from "@/components/SeasonBoard";
 
 type TournamentOption = {
   slug: "masters" | "pga-championship" | "us-open" | "the-open";
@@ -263,6 +264,7 @@ function HomePageContent() {
 
   return (
     <main className="space-y-6">
+      <SeasonBoard year={2026} compact />
       <section className="hero-panel soft-card relative overflow-hidden rounded-[2rem] border px-6 py-8 md:px-8 md:py-10">
         <div className="pointer-events-none absolute -left-16 top-8 h-44 w-44 rounded-full bg-accent/20 blur-3xl" />
         <div className="pointer-events-none absolute right-6 top-6 h-36 w-36 rounded-full bg-accent/10 blur-3xl" />

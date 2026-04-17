@@ -6,10 +6,13 @@ import ThemeToggle from "@/components/ThemeToggle";
 
 const NAV_ITEMS = [
   { href: "/", label: "Home" },
+  { href: "/season/2026", label: "Season" },
+  { href: "/calendar", label: "Calendar" },
   { href: "/draft", label: "Draft" },
-  { href: "/admin", label: "Admin" },
   { href: "/leaderboard", label: "Player Leaderboard" },
   { href: "/tournament", label: "Tournament Leaderboard" },
+  { href: "/preferences", label: "Notifications" },
+  { href: "/admin", label: "Admin" },
 ];
 
 export default function SiteNav() {
@@ -19,7 +22,7 @@ export default function SiteNav() {
     <nav className="panel-chrome soft-card mb-6 rounded-[1.75rem] border px-4 py-3">
       <div className="mb-3 flex flex-col gap-3 border-b border-border/20 px-1 pb-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div>
-          <div className="text-[11px] uppercase tracking-[0.28em] text-muted">Golf Majors Pool</div>
+          <div className="text-[11px] uppercase tracking-[0.28em] text-muted">The 2026 Ultimate Sports Decathlon</div>
           <div className="text-lg font-semibold text-info">Clubhouse Console</div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
