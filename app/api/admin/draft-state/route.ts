@@ -3,6 +3,9 @@ import { getAuthenticatedEntrant } from "@/lib/draftAuth";
 import { advanceDraftState, buildDraftState, EXPECTED_ENTRANT_COUNT, syncDraftState } from "@/lib/draftOrder";
 import { getErrorMessage } from "@/lib/error";
 import { supabaseAdmin } from "@/lib/supabase";
+import { getBaseUrl, sendNotificationToAllMembers } from "@/lib/notifications/send";
+import { renderDraftOpens } from "@/lib/notifications/templates";
+import { getCurrentSeasonId } from "@/lib/events/resolve";
 
 export async function POST(req: Request) {
   let body: { pool_id?: string; tournament_slug?: string; draft_open?: boolean };
@@ -106,6 +109,26 @@ export async function POST(req: Request) {
         turn_started_at: null,
         turn_expires_at: null,
       };
+    }
+
+    if (draftOpen) {
+      try {
+        const seasonId = await getCurrentSeasonId();
+        if (seasonId) {
+          const { data: event } = await supabaseAdmin
+            .from("events")
+            .select("name, slug")
+            .eq("season_id", seasonId)
+            .eq("legacy_pool_id", poolId)
+            .maybeSingle<{ name: string; slug: string }>();
+          if (event) {
+            const email = renderDraftOpens({ name: event.name, slug: event.slug }, getBaseUrl());
+            await sendNotificationToAllMembers({ seasonId, kind: "draft_opens", email });
+          }
+        }
+      } catch (notifErr) {
+        console.warn("draft_opens notification failed:", notifErr);
+      }
     }
 
     return NextResponse.json({

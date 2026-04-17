@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { href: "/", label: "Home" },
   { href: "/season/2026", label: "Season" },
   { href: "/calendar", label: "Calendar" },
+  { href: "/hot-seat", label: "Hot Seat" },
   { href: "/draft", label: "Draft" },
   { href: "/leaderboard", label: "Player Leaderboard" },
   { href: "/tournament", label: "Tournament Leaderboard" },

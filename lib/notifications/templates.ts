@@ -68,6 +68,27 @@ export function renderEventLock(event: { name: string; slug: string }, baseUrl: 
   return { subject, html, text: `${event.name} entries locked.` };
 }
 
+export function renderHotSeatDeclared(
+  declarerName: string,
+  declaration: string,
+  odds: number,
+  vetoDeadline: string | null,
+  baseUrl: string,
+): RenderedEmail {
+  const subject = `Hot Seat: ${declarerName} declared — veto window open`;
+  const oddsStr = odds > 0 ? `+${odds}` : `${odds}`;
+  const html = wrap(
+    `<p style="color:#eaeaea;font-size:14px;line-height:1.6;"><strong>${declarerName}</strong> took the Hot Seat:</p>
+     <blockquote style="border-left:3px solid #635bff;padding-left:12px;color:#eaeaea;font-size:15px;margin:12px 0;">${declaration}</blockquote>
+     <p style="color:#9aa0a6;font-size:12px;">Odds ${oddsStr}${vetoDeadline ? ` · veto window closes ${new Date(vetoDeadline).toLocaleString()}` : ""}</p>`,
+    {
+      title: "Hot Seat declared",
+      cta: { href: `${baseUrl}/hot-seat`, label: "Review & vote" },
+    },
+  );
+  return { subject, html, text: `${declarerName} Hot Seat: ${declaration}` };
+}
+
 export function renderEventFinal(
   event: { name: string; slug: string },
   podium: Array<{ display_name: string; awarded_points: number }>,

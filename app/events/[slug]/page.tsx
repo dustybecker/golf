@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import SiteNav from "@/components/SiteNav";
+import BracketNbaBoard from "@/components/events/BracketNbaBoard";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getEventBySlug, getCurrentSeasonId } from "@/lib/events/resolve";
 import { getEventHandler } from "@/lib/events/registry";
@@ -54,6 +55,7 @@ export default async function EventDetailPage({ params }: Props) {
 
   const showEntry = ["open-entry", "scheduled"].includes(event.status);
   const showLeaderboard = event.status === "final" || event.status === "live" || event.status === "locked";
+  const showProvisional = event.event_type === "bracket-nba" && event.status !== "final";
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-6">
@@ -106,6 +108,18 @@ export default async function EventDetailPage({ params }: Props) {
               Open Bracket →
             </Link>
           ) : null}
+        </div>
+      ) : null}
+
+      {showProvisional ? (
+        <div className="mb-4">
+          <BracketNbaBoard
+            slug={event.slug}
+            members={(members ?? []).map((m) => ({
+              entrant_id: m.entrant_id,
+              display_name: m.display_name,
+            }))}
+          />
         </div>
       ) : null}
 
