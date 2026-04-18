@@ -42,7 +42,7 @@ export default function ThemeToggle() {
       ].join(" ")}
       aria-label="Toggle light and dark mode"
     >
-      {mounted ? (currentTheme === "dark" ? "Dark Mode" : "Light Mode") : "Theme"}
+      {mounted ? (currentTheme === "dark" ? "Light Mode" : "Dark Mode") : "Theme"}
     </button>
   );
 }
