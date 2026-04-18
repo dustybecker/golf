@@ -5,6 +5,7 @@ import { getErrorMessage } from "@/lib/error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getBaseUrl, sendNotificationToAllMembers } from "@/lib/notifications/send";
 import { renderDraftOpens } from "@/lib/notifications/templates";
+import { smsDraftOpens } from "@/lib/notifications/smsTemplates";
 import { getCurrentSeasonId } from "@/lib/events/resolve";
 
 export async function POST(req: Request) {
@@ -123,7 +124,8 @@ export async function POST(req: Request) {
             .maybeSingle<{ name: string; slug: string }>();
           if (event) {
             const email = renderDraftOpens({ name: event.name, slug: event.slug }, getBaseUrl());
-            await sendNotificationToAllMembers({ seasonId, kind: "draft_opens", email });
+            const sms = smsDraftOpens({ name: event.name }, getBaseUrl());
+            await sendNotificationToAllMembers({ seasonId, kind: "draft_opens", email, sms });
           }
         }
       } catch (notifErr) {

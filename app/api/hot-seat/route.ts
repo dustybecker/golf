@@ -6,6 +6,7 @@ import { entrantForWeek, weekStartFor, isLongshotOdds } from "@/lib/hotSeat/rota
 import { getErrorMessage } from "@/lib/error";
 import { getBaseUrl, sendNotificationToAllMembers } from "@/lib/notifications/send";
 import { renderHotSeatDeclared } from "@/lib/notifications/templates";
+import { smsHotSeatDeclared } from "@/lib/notifications/smsTemplates";
 
 export const revalidate = 0;
 
@@ -159,10 +160,12 @@ export async function POST(request: NextRequest) {
         vetoDeadline.toISOString(),
         getBaseUrl(),
       );
+      const sms = smsHotSeatDeclared(scheduled.display_name, declaration, getBaseUrl());
       await sendNotificationToAllMembers({
         seasonId,
         kind: "hot_seat_declared",
         email,
+        sms,
         excludeEntrantIds: [canonicalId],
       });
     } catch (notifErr) {

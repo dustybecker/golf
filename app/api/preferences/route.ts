@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getAuthenticatedEntrant } from "@/lib/draftAuth";
+import { isE164 } from "@/lib/notifications/twilio";
 import { getErrorMessage } from "@/lib/error";
 
 export const revalidate = 0;
+
+type PrefsShape = Record<string, unknown>;
 
 export async function GET() {
   try {
@@ -12,12 +15,13 @@ export async function GET() {
 
     const { data } = await supabaseAdmin
       .from("notification_preferences")
-      .select("email, prefs")
+      .select("email, phone_e164, prefs")
       .eq("entrant_id", session.entrant.entrant_id)
-      .maybeSingle<{ email: string | null; prefs: Record<string, boolean> | null }>();
+      .maybeSingle<{ email: string | null; phone_e164: string | null; prefs: PrefsShape | null }>();
 
     return NextResponse.json({
       email: data?.email ?? null,
+      phone_e164: data?.phone_e164 ?? null,
       prefs: data?.prefs ?? null,
     });
   } catch (err) {
@@ -35,15 +39,24 @@ export async function PATCH(request: NextRequest) {
 
     const body = (await request.json().catch(() => ({}))) as {
       email?: string | null;
-      prefs?: Record<string, boolean>;
+      phone_e164?: string | null;
+      prefs?: PrefsShape;
     };
 
-    const row = {
+    if (body.phone_e164 && !isE164(body.phone_e164)) {
+      return NextResponse.json(
+        { error: "phone_e164 must be E.164 format, e.g. +15551234567" },
+        { status: 400 },
+      );
+    }
+
+    const row: Record<string, unknown> = {
       entrant_id: session.entrant.entrant_id,
       email: body.email ?? null,
-      prefs: body.prefs ?? undefined,
+      phone_e164: body.phone_e164 ?? null,
       updated_at: new Date().toISOString(),
     };
+    if (body.prefs !== undefined) row.prefs = body.prefs;
 
     const { error } = await supabaseAdmin
       .from("notification_preferences")

@@ -6,6 +6,7 @@ import { getEventHandler } from "@/lib/events/registry";
 import { getErrorMessage } from "@/lib/error";
 import { getBaseUrl, sendNotificationToAllMembers } from "@/lib/notifications/send";
 import { renderEventFinal } from "@/lib/notifications/templates";
+import { smsEventFinal } from "@/lib/notifications/smsTemplates";
 
 export async function POST(request: NextRequest) {
   try {
@@ -123,10 +124,14 @@ export async function POST(request: NextRequest) {
         }));
 
       const email = renderEventFinal({ name: event.name, slug: event.slug }, podium, getBaseUrl());
+      const sms = podium[0]
+        ? smsEventFinal({ name: event.name }, podium[0].display_name, podium[0].awarded_points, getBaseUrl())
+        : undefined;
       await sendNotificationToAllMembers({
         seasonId,
         kind: "event_final",
         email,
+        sms,
       });
     } catch (notifErr) {
       console.warn("event_final notification failed:", notifErr);
