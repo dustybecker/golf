@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import SiteNav from "@/components/SiteNav";
 import BracketNbaBoard from "@/components/events/BracketNbaBoard";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getEventBySlug, getCurrentSeasonId } from "@/lib/events/resolve";
@@ -58,8 +57,7 @@ export default async function EventDetailPage({ params }: Props) {
   const showProvisional = event.event_type === "bracket-nba" && event.status !== "final";
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-6">
-      <SiteNav />
+    <main className="mx-auto max-w-4xl">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
