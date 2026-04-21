@@ -183,17 +183,17 @@ export default function PlayerLeaderboardPage() {
 
   return (
     <main className="space-y-6">
-      <section className="soft-card rounded-[1.75rem] border bg-surface/70 px-6 py-8 backdrop-blur-xl">
+      <section className="soft-card rounded-[1.75rem] border bg-surface/70 px-4 py-6 backdrop-blur-xl sm:px-6 sm:py-8">
         <p className="text-xs uppercase tracking-[0.24em] text-muted">Scoring</p>
-        <h1 className="mt-2 text-3xl font-semibold">Player Leaderboard</h1>
+        <h1 className="mt-2 text-2xl font-semibold sm:text-3xl">Player Leaderboard</h1>
         <p className="mt-2 text-sm text-muted">
           Team totals are built from each entrant&apos;s lowest 4 net golfer scores. Use the entrant toggle to inspect the full six-golfer roster.
         </p>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
+        <div className="mt-4 grid gap-3 sm:flex sm:flex-wrap sm:items-center">
           <select
             value={selectedTournament}
             onChange={(e) => setSelectedTournament(e.target.value)}
-            className="glass-input rounded-xl px-3 py-2 text-sm"
+            className="glass-input w-full rounded-xl px-3 py-2 text-sm sm:w-auto"
           >
             {availableTournaments.map((tournament) => (
               <option key={tournament.tournament_slug} value={tournament.tournament_slug}>
@@ -205,13 +205,13 @@ export default function PlayerLeaderboardPage() {
             value={selectedPoolId}
             onChange={(e) => setSelectedPoolId(e.target.value)}
             placeholder="Pool ID"
-            className="glass-input rounded-xl px-3 py-2 text-sm"
+            className="glass-input w-full rounded-xl px-3 py-2 text-sm sm:w-auto"
           />
           <select
             value={selectedEntrant}
             onChange={(e) => setSelectedEntrant(e.target.value)}
             disabled={rows.length === 0}
-            className="glass-input rounded-xl px-3 py-2 text-sm"
+            className="glass-input w-full rounded-xl px-3 py-2 text-sm sm:w-auto"
           >
             {rows.length === 0 ? (
               <option value="">Select entrant</option>
@@ -265,7 +265,42 @@ export default function PlayerLeaderboardPage() {
               </div>
             </div>
 
-            <div className="soft-subtle mt-4 overflow-auto rounded-[1.25rem] border">
+            <ul className="mt-4 space-y-2 md:hidden">
+              {rows.map((row, index) => {
+                const selected = selectedEntrantRow?.entrant_name === row.entrant_name;
+                return (
+                  <li key={`m-${row.entrant_name}`}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedEntrant(row.entrant_name)}
+                      aria-pressed={selected}
+                      className={[
+                        "soft-subtle flex w-full items-center justify-between gap-3 rounded-[1.25rem] border px-3 py-3 text-left transition-colors",
+                        selected ? "border-accent/40 bg-accent/10" : "hover:bg-surface/60",
+                      ].join(" ")}
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface/70 text-sm font-semibold text-muted">
+                          {index + 1}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-semibold">{row.entrant_name}</div>
+                          <div className="text-xs text-muted">
+                            TB 5th {row.tie_break_5_position ?? "-"} &middot; 6th {row.tie_break_6_position ?? "-"}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <div className="text-lg font-semibold">{formatToPar(teamToPar(row))}</div>
+                        <div className="text-[10px] uppercase tracking-wide text-muted">Team</div>
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+
+            <div className="soft-subtle mt-4 hidden overflow-auto rounded-[1.25rem] border md:block">
               <table className="w-full min-w-[720px] text-sm">
                 <thead className="border-b border-border text-xs uppercase tracking-wide text-muted">
                   <tr>

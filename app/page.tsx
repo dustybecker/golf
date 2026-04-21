@@ -265,24 +265,24 @@ function HomePageContent() {
   return (
     <main className="space-y-6">
       <SeasonBoard year={2026} compact />
-      <section className="hero-panel soft-card relative overflow-hidden rounded-[2rem] border px-6 py-8 md:px-8 md:py-10">
+      <section className="hero-panel soft-card relative overflow-hidden rounded-[2rem] border px-5 py-7 sm:px-6 sm:py-8 md:px-8 md:py-10">
         <div className="pointer-events-none absolute -left-16 top-8 h-44 w-44 rounded-full bg-accent/20 blur-3xl" />
         <div className="pointer-events-none absolute right-6 top-6 h-36 w-36 rounded-full bg-accent/10 blur-3xl" />
-        <div className="relative grid gap-8 lg:grid-cols-[1.35fr,0.65fr] lg:items-end">
+        <div className="relative grid gap-6 lg:grid-cols-[1.35fr,0.65fr] lg:items-end lg:gap-8">
           <div>
             <p className="text-[11px] uppercase tracking-[0.3em] text-muted">Golf Majors Pool</p>
-            <h1 className="mt-4 max-w-4xl text-4xl font-semibold leading-[0.92] text-info md:text-6xl">
+            <h1 className="mt-3 max-w-4xl text-3xl font-semibold leading-[1] text-info sm:text-4xl md:text-5xl lg:text-6xl lg:leading-[0.92]">
               Welcome to the Surge
             </h1>
-            <p className="mt-4 max-w-2xl text-sm leading-6 text-muted md:text-base">
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted md:text-base">
               Sign in, choose the tournament board you want to work from, and move straight into
               the draft, standings, and live scoring.
             </p>
-            <div className="mt-6 flex flex-wrap items-center gap-3">
+            <div className="mt-5 grid gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
               <select
                 value={selectedTournament}
                 onChange={(e) => setSelectedTournament(e.target.value as TournamentOption["slug"])}
-                className="glass-input rounded-xl px-4 py-3 text-sm"
+                className="glass-input w-full rounded-xl px-4 py-3 text-sm sm:w-auto"
               >
                 {TOURNAMENTS.map((tournament) => (
                   <option key={tournament.slug} value={tournament.slug}>
@@ -294,7 +294,7 @@ function HomePageContent() {
                 <>
                   <Link
                     href="/draft"
-                    className="rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(99,91,255,0.28)]"
+                    className="rounded-xl bg-accent px-4 py-3 text-center text-sm font-semibold text-white shadow-[0_12px_28px_rgba(99,91,255,0.28)]"
                   >
                     Enter Draft Room
                   </Link>
@@ -344,18 +344,26 @@ function HomePageContent() {
         </div>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1.05fr,0.95fr]">
-        <div className="soft-card rounded-[1.5rem] border bg-surface/70 p-5 backdrop-blur-xl">
+      <section className="grid gap-4 lg:grid-cols-2 xl:grid-cols-[1.05fr,0.95fr]">
+        <div className="soft-card rounded-[1.5rem] border bg-surface/70 p-4 backdrop-blur-xl sm:p-5">
           <h2 className="text-sm font-semibold">Entrant Sign In</h2>
           <p className="mt-1 text-sm text-muted">
             Choose your entrant slot and enter the access code you were given. After signing in,
             use the Draft tab to make picks.
           </p>
-          <div className="mt-4 grid gap-3 md:grid-cols-[1fr,1fr,auto]">
+          <form
+            className="mt-4 grid gap-3 sm:grid-cols-[1fr,1fr,auto]"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleLogin();
+            }}
+          >
             <select
               value={loginSlug}
               onChange={(e) => setLoginSlug(e.target.value)}
               disabled={entrantsLoading || entrants.length === 0 || sessionLoading}
+              autoComplete="username"
+              name="entrant"
               className="glass-input rounded-xl px-3 py-3 text-sm"
             >
               <option value="">Select entrant</option>
@@ -370,11 +378,13 @@ function HomePageContent() {
               value={accessCode}
               onChange={(e) => setAccessCode(e.target.value)}
               placeholder="Access code"
+              autoComplete="current-password"
+              name="access-code"
+              inputMode="text"
               className="glass-input rounded-xl px-3 py-3 text-sm"
             />
             <button
-              type="button"
-              onClick={() => void handleLogin()}
+              type="submit"
               disabled={loginLoading || !loginSlug || !accessCode.trim()}
               className={[
                 "rounded-xl px-4 py-3 text-sm font-semibold transition-all",
@@ -385,7 +395,7 @@ function HomePageContent() {
             >
               {loginLoading ? "Signing in..." : "Sign In"}
             </button>
-          </div>
+          </form>
           <div className="mt-3 text-xs text-muted">
             {sessionLoading
               ? "Checking current session..."
@@ -424,8 +434,8 @@ function HomePageContent() {
         </div>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[0.95fr,1.05fr]">
-        <div className="soft-card rounded-[1.5rem] border bg-surface/70 p-5 backdrop-blur-xl">
+      <section className="grid gap-4 lg:grid-cols-2 xl:grid-cols-[0.95fr,1.05fr]">
+        <div className="soft-card rounded-[1.5rem] border bg-surface/70 p-4 backdrop-blur-xl sm:p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-semibold">Pool Snapshot</h2>
@@ -461,7 +471,7 @@ function HomePageContent() {
           )}
         </div>
 
-        <div className="soft-card rounded-[1.5rem] border bg-surface/70 p-5 backdrop-blur-xl">
+        <div className="soft-card rounded-[1.5rem] border bg-surface/70 p-4 backdrop-blur-xl sm:p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-semibold">Tournament Snapshot</h2>
@@ -479,8 +489,35 @@ function HomePageContent() {
           ) : topGolfers.length === 0 ? (
             <div className="mt-4 text-sm text-muted">No tournament scores synced yet for this tournament.</div>
           ) : (
-            <div className="soft-subtle mt-4 overflow-auto rounded-[1.25rem] border">
-              <table className="w-full min-w-[620px] text-sm">
+            <>
+              <ul className="mt-4 space-y-2 md:hidden">
+                {topGolfers.map((row) => (
+                  <li
+                    key={`m-${row.golfer}`}
+                    className="soft-subtle flex items-center justify-between gap-3 rounded-[1.25rem] border px-3 py-3"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex min-w-[2rem] justify-center rounded-md bg-surface/60 px-1.5 py-0.5 text-xs font-semibold text-muted">
+                          {row.position_text ?? row.position ?? "-"}
+                        </span>
+                        <div className="truncate text-sm font-medium">{row.golfer}</div>
+                      </div>
+                      <div className="mt-1 text-xs text-muted">
+                        {row.gross_total} strokes &middot;{" "}
+                        {row.drafted_by.length > 0 ? row.drafted_by.join(", ") : "Undrafted"}
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div className="text-base font-semibold">{formatToPar(tournamentToPar(row))}</div>
+                      <div className="text-[10px] uppercase tracking-wide text-muted">To Par</div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="soft-subtle mt-4 hidden overflow-auto rounded-[1.25rem] border md:block">
+                <table className="w-full min-w-[620px] text-sm">
                 <thead className="border-b border-border text-xs uppercase tracking-wide text-muted">
                   <tr>
                     <th className="px-3 py-3 text-left">Pos</th>
@@ -505,6 +542,7 @@ function HomePageContent() {
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </div>
       </section>
