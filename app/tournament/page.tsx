@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getErrorMessage } from "@/lib/error";
 import { isTournamentPollingActive, TournamentSlug, TOURNAMENTS } from "@/lib/tournaments";
 import { formatLastUpdated, useAutoRefreshValue } from "@/lib/useAutoRefresh";
+import { useRequireEntrant } from "@/lib/useRequireEntrant";
 
 type TournamentRow = {
   golfer: string;
@@ -42,6 +43,26 @@ export default function TournamentLeaderboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [authed, setAuthed] = useState<boolean | null>(null);
+
+  useRequireEntrant({ ready: authed !== null, entrant: authed ? { is_admin: false } : null });
+
+  useEffect(() => {
+    let cancelled = false;
+    async function check() {
+      try {
+        const res = await fetch(`/api/auth/me`, { cache: "no-store" });
+        const json = await res.json();
+        if (!cancelled) setAuthed(Boolean(json?.entrant));
+      } catch {
+        if (!cancelled) setAuthed(false);
+      }
+    }
+    void check();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const poolId = useMemo(() => selectedPoolId.trim() || `${basePoolId}-masters`, [basePoolId, selectedPoolId]);
 

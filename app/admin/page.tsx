@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getErrorMessage } from "@/lib/error";
+import { useRequireEntrant } from "@/lib/useRequireEntrant";
 import AdminEventFinalizer from "@/components/AdminEventFinalizer";
 
 type TournamentOption = {
@@ -124,6 +125,12 @@ export default function AdminPage() {
   const [sessionEntrant, setSessionEntrant] = useState<Entrant | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
+
+  useRequireEntrant({
+    ready: !loadingSession,
+    entrant: sessionEntrant,
+    requireAdmin: true,
+  });
 
   const [previewRows, setPreviewRows] = useState<HandicapPreviewRow[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);

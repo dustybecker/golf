@@ -1,5 +1,7 @@
+import { redirect } from "next/navigation";
 import SeasonBoard from "@/components/SeasonBoard";
 import SeasonEventGrid from "@/components/SeasonEventGrid";
+import { getAuthenticatedEntrant } from "@/lib/draftAuth";
 
 type Props = {
   params: Promise<{ year: string }>;
@@ -8,6 +10,9 @@ type Props = {
 export default async function SeasonPage({ params }: Props) {
   const { year } = await params;
   const yearNum = Number(year);
+
+  const session = await getAuthenticatedEntrant();
+  if (!session) redirect(`/sign-in?returnTo=/season/${year}`);
 
   return (
     <main>

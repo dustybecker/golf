@@ -30,7 +30,7 @@ export default async function EventEntryPage({ params }: Props) {
   if (!event) notFound();
 
   const session = await getAuthenticatedEntrant();
-  if (!session) redirect(`/?returnTo=/events/${slug}/entry`);
+  if (!session) redirect(`/sign-in?returnTo=/events/${slug}/entry`);
 
   // Fetch my existing entry (canonical entrant_id is resolved server-side in the POST handler,
   // so here we look up by person_key for display).

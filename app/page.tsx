@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { getErrorMessage } from "@/lib/error";
 import { formatLastUpdated, useAutoRefreshValue } from "@/lib/useAutoRefresh";
+import { useRequireEntrant } from "@/lib/useRequireEntrant";
 import SeasonBoard from "@/components/SeasonBoard";
 
 type TournamentOption = {
@@ -80,17 +81,9 @@ function HomePageContent() {
   const searchParams = useSearchParams();
   const basePoolId = process.env.NEXT_PUBLIC_POOL_ID || "2026-majors";
   const [selectedTournament, setSelectedTournament] = useState<TournamentOption["slug"]>("masters");
-  const [loginSlug, setLoginSlug] = useState("");
-  const [accessCode, setAccessCode] = useState("");
-
-  const [entrants, setEntrants] = useState<Entrant[]>([]);
-  const [entrantsLoading, setEntrantsLoading] = useState(true);
-  const [entrantsError, setEntrantsError] = useState<string | null>(null);
 
   const [sessionEntrant, setSessionEntrant] = useState<Entrant | null>(null);
   const [sessionLoading, setSessionLoading] = useState(true);
-  const [loginLoading, setLoginLoading] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
 
   const [availableTournaments, setAvailableTournaments] = useState<TournamentMetaOption[]>(
     TOURNAMENTS.map((item) => ({ tournament_slug: item.slug, label: item.label }))
@@ -107,6 +100,8 @@ function HomePageContent() {
   );
   const draftOpen = selectedTournamentMeta?.draft_active_now ?? false;
   const refreshTick = useAutoRefreshValue(30000, draftOpen);
+
+  useRequireEntrant({ ready: !sessionLoading, entrant: sessionEntrant });
 
   function golferToPar(golfer: ScoringGolfer) {
     const roundPar = selectedTournamentMeta?.round_par ?? 72;
@@ -129,14 +124,8 @@ function HomePageContent() {
 
   useEffect(() => {
     const tournamentParam = searchParams.get("tournament");
-    const entrantParam = searchParams.get("entrant");
-
     if (tournamentParam && TOURNAMENTS.some((option) => option.slug === tournamentParam)) {
       setSelectedTournament(tournamentParam as TournamentOption["slug"]);
-    }
-
-    if (entrantParam) {
-      setLoginSlug(entrantParam);
     }
   }, [searchParams]);
 
@@ -144,40 +133,20 @@ function HomePageContent() {
     let cancelled = false;
 
     async function loadContext() {
-      setEntrantsLoading(true);
       setSessionLoading(true);
-      setEntrantsError(null);
-      setAuthError(null);
-
       try {
-        const [entrantsRes, sessionRes] = await Promise.all([
-          fetch(`/api/entrants?pool_id=${encodeURIComponent(poolId)}`),
-          fetch(`/api/auth/me?pool_id=${encodeURIComponent(poolId)}`),
-        ]);
-
-        const entrantsJson = await entrantsRes.json();
-        const sessionJson = await sessionRes.json();
-
-        if (!entrantsRes.ok) throw new Error(entrantsJson?.error ?? "Failed to load entrants");
-        if (!sessionRes.ok) throw new Error(sessionJson?.error ?? "Failed to load session");
-
+        const res = await fetch(`/api/auth/me?pool_id=${encodeURIComponent(poolId)}`, {
+          cache: "no-store",
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.error ?? "Failed to load session");
         if (!cancelled) {
-          const loadedEntrants = (entrantsJson.entrants ?? []) as Entrant[];
-          setEntrants(loadedEntrants);
-          setSessionEntrant((sessionJson.entrant ?? null) as Entrant | null);
-          setLoginSlug((current) => current || loadedEntrants[0]?.entrant_slug || "");
+          setSessionEntrant((json.entrant ?? null) as Entrant | null);
         }
-      } catch (e: unknown) {
-        if (!cancelled) {
-          setEntrants([]);
-          setSessionEntrant(null);
-          setEntrantsError(getErrorMessage(e, "Failed to load entrants"));
-        }
+      } catch {
+        if (!cancelled) setSessionEntrant(null);
       } finally {
-        if (!cancelled) {
-          setEntrantsLoading(false);
-          setSessionLoading(false);
-        }
+        if (!cancelled) setSessionLoading(false);
       }
     }
 
@@ -231,35 +200,12 @@ function HomePageContent() {
     };
   }, [poolId, selectedTournament, refreshTick]);
 
-  async function handleLogin() {
-    if (!loginSlug || !accessCode.trim()) return;
-    setLoginLoading(true);
-    setAuthError(null);
-
-    try {
-      const res = await fetch("/api/auth/entrant-login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          pool_id: poolId,
-          entrant_slug: loginSlug,
-          access_code: accessCode,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "Failed to sign in");
-      setSessionEntrant((json.entrant ?? null) as Entrant | null);
-      setAccessCode("");
-    } catch (e: unknown) {
-      setAuthError(getErrorMessage(e, "Failed to sign in"));
-    } finally {
-      setLoginLoading(false);
-    }
-  }
-
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
     setSessionEntrant(null);
+    // Guard hook will bounce to /sign-in on the next render cycle, but we also
+    // push directly so there's no flash of the authenticated UI.
+    window.location.href = "/sign-in";
   }
 
   return (
@@ -344,93 +290,27 @@ function HomePageContent() {
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-2 xl:grid-cols-[1.05fr,0.95fr]">
-        <div className="soft-card rounded-[1.5rem] border bg-surface/70 p-4 backdrop-blur-xl sm:p-5">
-          <h2 className="text-sm font-semibold">Entrant Sign In</h2>
-          <p className="mt-1 text-sm text-muted">
-            Choose your entrant slot and enter the access code you were given. After signing in,
-            use the Draft tab to make picks.
-          </p>
-          <form
-            className="mt-4 grid gap-3 sm:grid-cols-[1fr,1fr,auto]"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void handleLogin();
-            }}
-          >
-            <select
-              value={loginSlug}
-              onChange={(e) => setLoginSlug(e.target.value)}
-              disabled={entrantsLoading || entrants.length === 0 || sessionLoading}
-              autoComplete="username"
-              name="entrant"
-              className="glass-input rounded-xl px-3 py-3 text-sm"
-            >
-              <option value="">Select entrant</option>
-              {entrants.map((entrant) => (
-                <option key={entrant.entrant_id} value={entrant.entrant_slug}>
-                  {entrant.entrant_name}
-                </option>
-              ))}
-            </select>
-            <input
-              type="password"
-              value={accessCode}
-              onChange={(e) => setAccessCode(e.target.value)}
-              placeholder="Access code"
-              autoComplete="current-password"
-              name="access-code"
-              inputMode="text"
-              className="glass-input rounded-xl px-3 py-3 text-sm"
-            />
-            <button
-              type="submit"
-              disabled={loginLoading || !loginSlug || !accessCode.trim()}
-              className={[
-                "rounded-xl px-4 py-3 text-sm font-semibold transition-all",
-                loginLoading || !loginSlug || !accessCode.trim()
-                  ? "bg-border/50 text-muted"
-                  : "bg-accent text-white shadow-[0_12px_28px_rgba(99,91,255,0.24)]",
-              ].join(" ")}
-            >
-              {loginLoading ? "Signing in..." : "Sign In"}
-            </button>
-          </form>
-          <div className="mt-3 text-xs text-muted">
-            {sessionLoading
-              ? "Checking current session..."
-              : entrantsLoading
-                ? "Loading entrants..."
-                : entrants.length === 0
-                  ? "No entrants found for this pool yet."
-                  : "Your access code only unlocks your own entrant slot."}
-          </div>
-          {entrantsError && <div className="mt-2 text-xs text-danger">{entrantsError}</div>}
-          {authError && <div className="mt-2 text-xs text-danger">{authError}</div>}
-        </div>
-
-        <div className="soft-card rounded-[1.5rem] border bg-surface/70 p-5 backdrop-blur-xl">
-          <h2 className="text-sm font-semibold">Where To Go Next</h2>
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <Link href="/draft" className="soft-subtle rounded-[1.25rem] border p-4 transition-colors hover:bg-surface/60">
-              <div className="text-sm font-semibold">Draft</div>
-              <div className="mt-1 text-xs text-muted">
-                Make picks, review your roster, and track what is still available.
-              </div>
-            </Link>
-            <Link href="/leaderboard" className="soft-subtle rounded-[1.25rem] border p-4 transition-colors hover:bg-surface/60">
-              <div className="text-sm font-semibold">Player Leaderboard</div>
-              <div className="mt-1 text-xs text-muted">
-                See the pool standings based on the best four net golfer scores.
-              </div>
-            </Link>
-            <Link href="/tournament" className="soft-subtle rounded-[1.25rem] border p-4 transition-colors hover:bg-surface/60">
-              <div className="text-sm font-semibold">Tournament Leaderboard</div>
-              <div className="mt-1 text-xs text-muted">
-                See the real event leaderboard and who drafted each golfer.
-              </div>
-            </Link>
-          </div>
+      <section className="soft-card rounded-[1.5rem] border bg-surface/70 p-4 backdrop-blur-xl sm:p-5">
+        <h2 className="text-sm font-semibold">Where To Go Next</h2>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <Link href="/draft" className="soft-subtle rounded-[1.25rem] border p-4 transition-colors hover:bg-surface/60">
+            <div className="text-sm font-semibold">Draft</div>
+            <div className="mt-1 text-xs text-muted">
+              Make picks, review your roster, and track what is still available.
+            </div>
+          </Link>
+          <Link href="/leaderboard" className="soft-subtle rounded-[1.25rem] border p-4 transition-colors hover:bg-surface/60">
+            <div className="text-sm font-semibold">Player Leaderboard</div>
+            <div className="mt-1 text-xs text-muted">
+              See the pool standings based on the best four net golfer scores.
+            </div>
+          </Link>
+          <Link href="/tournament" className="soft-subtle rounded-[1.25rem] border p-4 transition-colors hover:bg-surface/60">
+            <div className="text-sm font-semibold">Tournament Leaderboard</div>
+            <div className="mt-1 text-xs text-muted">
+              See the real event leaderboard and who drafted each golfer.
+            </div>
+          </Link>
         </div>
       </section>
 

@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { getErrorMessage } from "@/lib/error";
 import { formatLastUpdated, useAutoRefreshValue } from "@/lib/useAutoRefresh";
+import { useRequireEntrant } from "@/lib/useRequireEntrant";
 
 type Golfer = {
   id: string;
@@ -115,8 +116,11 @@ function DraftPageContent() {
   const [entrantsError, setEntrantsError] = useState<string | null>(null);
 
   const [sessionEntrant, setSessionEntrant] = useState<Entrant | null>(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [togglingAutoDraft, setTogglingAutoDraft] = useState(false);
+
+  useRequireEntrant({ ready: !sessionLoading, entrant: sessionEntrant });
 
   const [golfers, setGolfers] = useState<Golfer[]>(FALLBACK_GOLFERS);
   const [loadingGolfers, setLoadingGolfers] = useState(true);
@@ -203,6 +207,7 @@ function DraftPageContent() {
 
     async function loadSession() {
       setAuthError(null);
+      setSessionLoading(true);
       try {
         const res = await fetch(`/api/auth/me?pool_id=${encodeURIComponent(poolId)}`, { cache: "no-store" });
         const json = await res.json();
@@ -213,6 +218,8 @@ function DraftPageContent() {
           setSessionEntrant(null);
           setAuthError(getErrorMessage(e, "Failed to load entrant session"));
         }
+      } finally {
+        if (!cancelled) setSessionLoading(false);
       }
     }
 

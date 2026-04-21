@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getErrorMessage } from "@/lib/error";
+import { useRequireEntrant } from "@/lib/useRequireEntrant";
 
 type HotSeatRow = {
   hot_seat_id: string;
@@ -53,6 +54,11 @@ export default function HotSeatPage() {
   const [bet, setBet] = useState("");
   const [odds, setOdds] = useState<string>("400");
   const [busy, setBusy] = useState(false);
+
+  useRequireEntrant({
+    ready: !loading,
+    entrant: session?.entrant ?? null,
+  });
 
   async function load() {
     setLoading(true);

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import BracketNbaBoard from "@/components/events/BracketNbaBoard";
 import { supabaseAdmin } from "@/lib/supabase";
+import { getAuthenticatedEntrant } from "@/lib/draftAuth";
 import { getEventBySlug, getCurrentSeasonId } from "@/lib/events/resolve";
 import { getEventHandler } from "@/lib/events/registry";
 
@@ -24,6 +25,10 @@ const TIER_LABEL: Record<number, string> = {
 
 export default async function EventDetailPage({ params }: Props) {
   const { slug } = await params;
+
+  const session = await getAuthenticatedEntrant();
+  if (!session) redirect(`/sign-in?returnTo=/events/${slug}`);
+
   const seasonId = await getCurrentSeasonId();
   if (!seasonId) notFound();
 
