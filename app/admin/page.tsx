@@ -67,6 +67,36 @@ type DraftStateRow = {
   is_complete: boolean;
 };
 
+type NotificationSummary =
+  | {
+      recipients: number;
+      email: { delivered: number; failed: number; skipped: number };
+      sms: { delivered: number; failed: number; skipped: number };
+    }
+  | { error: string }
+  | null;
+
+function formatNotificationSummary(summary: NotificationSummary): string | null {
+  if (!summary) return null;
+  if ("error" in summary) return `Notifications failed: ${summary.error}`;
+  const parts: string[] = [`Notified ${summary.recipients} members`];
+  const emailTotal = summary.email.delivered + summary.email.failed;
+  if (emailTotal > 0) {
+    parts.push(
+      `email ${summary.email.delivered}/${emailTotal}` +
+        (summary.email.failed > 0 ? ` (${summary.email.failed} failed)` : ""),
+    );
+  }
+  const smsTotal = summary.sms.delivered + summary.sms.failed;
+  if (smsTotal > 0) {
+    parts.push(
+      `SMS ${summary.sms.delivered}/${smsTotal}` +
+        (summary.sms.failed > 0 ? ` (${summary.sms.failed} failed)` : ""),
+    );
+  }
+  return parts.join(" · ");
+}
+
 const TOURNAMENTS: TournamentOption[] = [
   { slug: "masters", label: "The Masters" },
   { slug: "pga-championship", label: "PGA Championship" },
@@ -203,11 +233,16 @@ export default function AdminPage() {
           draft_open: nextDraftOpen,
         }),
       });
-      const json = await res.json();
+      const json = (await res.json()) as DraftStateRow & {
+        notifications?: NotificationSummary;
+        error?: string;
+      };
       if (!res.ok) throw new Error(json?.error ?? "Failed to update draft state");
       setDraftOpen(nextDraftOpen);
-      setDraftState((json ?? null) as DraftStateRow | null);
-      setDraftStateMessage(nextDraftOpen ? "Draft is now open." : "Draft is now locked.");
+      setDraftState(json as DraftStateRow);
+      const base = nextDraftOpen ? "Draft is now open." : "Draft is now locked.";
+      const notif = formatNotificationSummary(json.notifications ?? null);
+      setDraftStateMessage(notif ? `${base} ${notif}.` : base);
     } catch (e: unknown) {
       setDraftStateError(getErrorMessage(e, "Failed to update draft state"));
     } finally {

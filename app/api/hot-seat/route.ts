@@ -4,7 +4,11 @@ import { getAuthenticatedEntrant } from "@/lib/draftAuth";
 import { getCurrentSeasonId } from "@/lib/events/resolve";
 import { entrantForWeek, weekStartFor, isLongshotOdds } from "@/lib/hotSeat/rotation";
 import { getErrorMessage } from "@/lib/error";
-import { getBaseUrl, sendNotificationToAllMembers } from "@/lib/notifications/send";
+import {
+  type BroadcastSummary,
+  getBaseUrl,
+  sendNotificationToAllMembers,
+} from "@/lib/notifications/send";
 import { renderHotSeatDeclared } from "@/lib/notifications/templates";
 import { smsHotSeatDeclared } from "@/lib/notifications/smsTemplates";
 
@@ -168,6 +172,7 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
     if (error) throw new Error(error.message);
 
+    let notifications: BroadcastSummary | { error: string } | null = null;
     try {
       const email = renderHotSeatDeclared(
         scheduled.display_name,
@@ -177,7 +182,7 @@ export async function POST(request: NextRequest) {
         getBaseUrl(),
       );
       const sms = smsHotSeatDeclared(scheduled.display_name, declaration, getBaseUrl());
-      await sendNotificationToAllMembers({
+      notifications = await sendNotificationToAllMembers({
         seasonId,
         kind: "hot_seat_declared",
         email,
@@ -185,10 +190,12 @@ export async function POST(request: NextRequest) {
         excludeEntrantIds: [canonicalId],
       });
     } catch (notifErr) {
-      console.warn("hot_seat_declared notification failed:", notifErr);
+      const message = notifErr instanceof Error ? notifErr.message : String(notifErr);
+      console.warn("hot_seat_declared notification failed:", message);
+      notifications = { error: message };
     }
 
-    return NextResponse.json({ ok: true, hot_seat: data });
+    return NextResponse.json({ ok: true, hot_seat: data, notifications });
   } catch (err) {
     return NextResponse.json(
       { error: getErrorMessage(err, "Failed to declare") },

@@ -442,8 +442,34 @@ function DraftPageContent() {
     }
   }
 
+  const topBannerError = picksError ?? authError ?? entrantsError ?? null;
+
   return (
     <main className="space-y-6">
+      {topBannerError ? (
+        <div
+          role="alert"
+          className="flex items-start justify-between gap-3 rounded-2xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger"
+        >
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold">Something went wrong.</div>
+            <div className="mt-0.5 break-words text-xs">{topBannerError}</div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setPicksError(null);
+              setAuthError(null);
+              setEntrantsError(null);
+            }}
+            className="shrink-0 rounded-lg border border-danger/30 px-2 py-1 text-xs font-semibold text-danger hover:bg-danger/10"
+            aria-label="Dismiss error"
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
+
       <section className="relative overflow-hidden rounded-3xl border border-border bg-surface px-4 py-6 sm:px-6 sm:py-8">
         <div className="pointer-events-none absolute -top-24 right-0 h-48 w-48 rounded-full bg-[radial-gradient(circle,rgba(34,197,94,0.22),transparent_70%)]" />
         <p className="text-xs uppercase tracking-[0.24em] text-muted">Draft Room</p>
