@@ -6,12 +6,18 @@ Work happens in stages. Each stage produces one doc. We sign off before moving t
 
 | # | Stage | Output | Status |
 |---|---|---|---|
-| 1 | Vision & product definition | [`01-vision.md`](./01-vision.md) | **Draft — awaiting review** |
-| 2 | User journeys | `02-journeys.md` | Not started |
+| 1 | Vision & product definition | [`01-vision.md`](./01-vision.md) | ✅ Signed off 2026-04-21 |
+| 2 | User journeys | [`02-journeys.md`](./02-journeys.md) | **Draft — awaiting review** |
 | 3 | Information architecture | `03-ia.md` | Not started |
 | 4 | Design system (tokens, type, motion, primitives) | `04-design-system.md` | Not started |
 | 5 | Screen specs (top 8–10 screens, one file each) | `screens/*.md` | Not started |
 | 6 | Build plan (phased rollout) | `06-build-plan.md` | Not started |
+
+## Locked decisions
+
+- **D1 — Chat scope:** Both a persistent season channel and an ephemeral per-event channel.
+- **D2 — Presence default:** Public. Lurk Mode toggle = still receive chat + push, but hide from presence rails.
+- **D3 — Per-event live data:** Required. Every event hub has a first-class live-data module.
 
 ## Rules
 

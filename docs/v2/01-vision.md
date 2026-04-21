@@ -1,6 +1,6 @@
 # Stage 1 — Vision
 
-**Status:** draft, awaiting review.
+**Status:** signed off 2026-04-21.
 **Codename:** Surge (already used in v1 hero copy; carrying forward).
 
 ## One-sentence definition
@@ -52,6 +52,9 @@ v2 pulls the group text _into_ the app, gives each event its own room, and makes
    - High-ceiling: thread an argument about a series pick, author a hot take with text, scrub the event history — 30 minutes.
    - Neither mode should feel like the wrong one.
 
+7. **Every event plugs into live reality.**
+   Each event hub surfaces the real sporting event's current state — post positions and morning-line odds for the Derby, live scoreboard for NBA Finals, current drive for NFL games, leaderboard deltas for golf. An event without a live data module is a template, not a hub. The data source per event is a build-plan decision (Stage 6), but the UX spec assumes a live module exists as a first-class slot.
+
 ## What we're explicitly _not_ building
 
 - Public discovery, league marketplaces, or "join a league" flows
@@ -98,13 +101,14 @@ Member opens the app. Home shows season standings at the top, a "What's next" ti
 | Q5 | Can members pick their own avatar and accent color? | 4 (design system) |
 | Q6 | Push notifications via PWA or stay SMS/email-only? | 6 (build plan) |
 
-## DECISION markers for you
+## Decisions made
 
-Flagging the two shape-defining calls early so Stage 2 can build on them:
-
-- **`DECISION-1`** — Is **chat per event**, **chat per season** (one rolling feed), or **both**? Recommend both: a persistent season channel + an ephemeral per-event channel that auto-opens when the event hits `open-entry` and stays alive through `final`.
-- **`DECISION-2`** — Is **presence** public by default (everyone sees who's here) or opt-in? Recommend public by default with an easy lurk toggle in the user menu — matches a 6-person friend pool better than Discord-style invisible-by-default.
+| # | Question | Answer |
+|---|---|---|
+| D1 | Chat scope | **Both.** Persistent season channel + ephemeral per-event channel that auto-opens when the event hits `open-entry` and stays alive through `final` (then read-only). |
+| D2 | Presence default | **Public by default** with an explicit **Lurk Mode** toggle in the user menu. Lurk mode = you still receive the group chat and push notifications, but your avatar does **not** appear in event presence rails. Lurk is passive reception, not disconnection. |
+| D3 | Per-event live data | **Required.** Every event hub has a first-class live-data module. The data source per event is a build-plan concern (Stage 6). The UX assumes it exists. |
 
 ---
 
-_Next stage_: once you sign off on the vision, I'll draft Stage 2 (User Journeys) — the 4–6 "money paths" walked step-by-step, which becomes the backbone for the IA in Stage 3.
+_Next stage_: Stage 2 (User Journeys) — the 4–6 "money paths" walked step-by-step, which becomes the backbone for the IA in Stage 3.
