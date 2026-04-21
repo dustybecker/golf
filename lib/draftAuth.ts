@@ -108,7 +108,16 @@ export async function getAuthenticatedEntrant(poolId?: string) {
   }
 
   const entrant = await loadEntrantById(session.entrant_id);
-  if (!entrant) return null;
+  if (!entrant) {
+    // Entrant was deleted out from under this session (admin removed the row,
+    // pool was reseeded, etc.). Clean up the session so the cookie stops
+    // pointing at nothing and the user gets a normal signed-out experience.
+    await supabaseAdmin
+      .from("draft_sessions")
+      .delete()
+      .eq("session_id", session.session_id);
+    return null;
+  }
 
   await supabaseAdmin
     .from("draft_sessions")
