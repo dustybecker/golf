@@ -29,6 +29,8 @@ export async function POST(request: NextRequest) {
 
     const handler = getEventHandler(event);
 
+    const wasAlreadyFinal = event.status === "final";
+
     const { data: entries } = await supabaseAdmin
       .from("event_entries")
       .select("entrant_id, payload")
@@ -104,8 +106,17 @@ export async function POST(request: NextRequest) {
       .eq("event_id", event.event_id);
     if (updErr) throw new Error(updErr.message);
 
-    // Fire event_final notification. Non-blocking — any send failure is logged
-    // via notification_log in sendNotification.
+    // Fire event_final notification only on the first finalization. Re-running
+    // finalize (to recompute after a data fix, etc.) should not re-broadcast.
+    if (wasAlreadyFinal) {
+      return NextResponse.json({
+        ok: true,
+        already_final: true,
+        finishes: finishRows,
+        bonuses,
+      });
+    }
+
     try {
       const { data: members } = await supabaseAdmin
         .from("season_members")

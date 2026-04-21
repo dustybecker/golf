@@ -106,6 +106,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "not your week" }, { status: 403 });
     }
 
+    // Prevent re-declaring once the voting window has started. Double-submits
+    // would otherwise re-fire notifications to every member.
+    const { data: existing } = await supabaseAdmin
+      .from("hot_seat_weeks")
+      .select("status")
+      .eq("season_id", seasonId)
+      .eq("week_start", weekStart)
+      .maybeSingle<{ status: string }>();
+
+    if (existing && existing.status !== "awaiting") {
+      return NextResponse.json(
+        { error: "already declared for this week" },
+        { status: 409 },
+      );
+    }
+
     const body = (await request.json().catch(() => ({}))) as {
       declaration_text?: string;
       bet_details?: string;
