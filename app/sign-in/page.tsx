@@ -56,9 +56,9 @@ function SignInPageContent() {
     if (entrantParam) setLoginSlug(entrantParam);
   }, [searchParams]);
 
-  // If a valid session already exists, bounce to returnTo instead of showing
-  // the form. Prevents the "I'm signed in but I'm staring at a sign-in page"
-  // dead end.
+  // If a valid session already exists, bounce to returnTo (or to /welcome
+  // if they haven't seen it yet). Prevents the "I'm signed in but I'm
+  // staring at a sign-in page" dead end.
   useEffect(() => {
     let cancelled = false;
     async function check() {
@@ -68,7 +68,11 @@ function SignInPageContent() {
         });
         const json = await res.json();
         if (!cancelled && json?.entrant) {
-          router.replace(returnTo);
+          if (!json.entrant.welcomed_at) {
+            router.replace(`/welcome?returnTo=${encodeURIComponent(returnTo)}`);
+          } else {
+            router.replace(returnTo);
+          }
           return;
         }
       } catch {
@@ -127,7 +131,14 @@ function SignInPageContent() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error ?? "Failed to sign in");
-      router.replace(returnTo);
+      // First-time sign-in → route through /welcome so the video (and a
+      // one-time nickname moment later) happens before anything else.
+      const welcomedAt = json?.entrant?.welcomed_at ?? null;
+      if (!welcomedAt) {
+        router.replace(`/welcome?returnTo=${encodeURIComponent(returnTo)}`);
+      } else {
+        router.replace(returnTo);
+      }
     } catch (e: unknown) {
       setError(getErrorMessage(e, "Failed to sign in"));
     } finally {
