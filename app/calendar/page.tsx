@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
+import { getAuthenticatedEntrant } from "@/lib/draftAuth";
 
 export const revalidate = 0;
 
@@ -64,6 +66,9 @@ function groupEvents(events: EventRow[]): CalendarEntry[] {
 }
 
 export default async function CalendarPage() {
+  const session = await getAuthenticatedEntrant();
+  if (!session) redirect("/sign-in?returnTo=/calendar");
+
   const { data: season } = await supabaseAdmin
     .from("seasons")
     .select("season_id, year, label")

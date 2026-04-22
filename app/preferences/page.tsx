@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getErrorMessage } from "@/lib/error";
+import { useRequireEntrant } from "@/lib/useRequireEntrant";
 
 type ChannelPrefs = Record<string, boolean>;
 
@@ -58,6 +59,9 @@ export default function PreferencesPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [authed, setAuthed] = useState<boolean | null>(null);
+
+  useRequireEntrant({ ready: authed !== null, entrant: authed ? { is_admin: false } : null });
 
   useEffect(() => {
     let cancelled = false;
@@ -65,9 +69,10 @@ export default function PreferencesPage() {
       try {
         const res = await fetch("/api/preferences", { cache: "no-store" });
         if (res.status === 401) {
-          if (!cancelled) setError("Sign in on the home page to manage preferences.");
+          if (!cancelled) setAuthed(false);
           return;
         }
+        if (!cancelled) setAuthed(true);
         const body = await res.json();
         if (cancelled) return;
         setEmail(body.email ?? "");

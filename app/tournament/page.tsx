@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getErrorMessage } from "@/lib/error";
 import { isTournamentPollingActive, TournamentSlug, TOURNAMENTS } from "@/lib/tournaments";
 import { formatLastUpdated, useAutoRefreshValue } from "@/lib/useAutoRefresh";
+import { useRequireEntrant } from "@/lib/useRequireEntrant";
 
 type TournamentRow = {
   golfer: string;
@@ -34,7 +35,6 @@ type TournamentMetaOption = {
 export default function TournamentLeaderboardPage() {
   const basePoolId = process.env.NEXT_PUBLIC_POOL_ID || "2026-majors";
   const [selectedTournament, setSelectedTournament] = useState("masters");
-  const [selectedPoolId, setSelectedPoolId] = useState(`${basePoolId}-masters`);
   const [availableTournaments, setAvailableTournaments] = useState<TournamentMetaOption[]>(
     TOURNAMENTS.map((item) => ({ tournament_slug: item.slug, label: item.label }))
   );
@@ -42,8 +42,28 @@ export default function TournamentLeaderboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [authed, setAuthed] = useState<boolean | null>(null);
 
-  const poolId = useMemo(() => selectedPoolId.trim() || `${basePoolId}-masters`, [basePoolId, selectedPoolId]);
+  useRequireEntrant({ ready: authed !== null, entrant: authed ? { is_admin: false } : null });
+
+  useEffect(() => {
+    let cancelled = false;
+    async function check() {
+      try {
+        const res = await fetch(`/api/auth/me`, { cache: "no-store" });
+        const json = await res.json();
+        if (!cancelled) setAuthed(Boolean(json?.entrant));
+      } catch {
+        if (!cancelled) setAuthed(false);
+      }
+    }
+    void check();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const poolId = useMemo(() => `${basePoolId}-${selectedTournament}`, [basePoolId, selectedTournament]);
 
   const selectedTournamentMeta = availableTournaments.find(
     (item) => item.tournament_slug === selectedTournament
@@ -127,17 +147,17 @@ export default function TournamentLeaderboardPage() {
 
   return (
     <main className="space-y-6">
-      <section className="soft-card rounded-[1.75rem] border bg-surface/70 px-4 py-6 backdrop-blur-xl sm:px-6 sm:py-8">
-        <p className="text-xs uppercase tracking-[0.24em] text-muted">Scoring</p>
-        <h1 className="mt-2 text-2xl font-semibold sm:text-3xl">Tournament Leaderboard</h1>
-        <p className="mt-2 text-sm text-muted">
-          Real tournament leaderboard view with raw strokes, score to par, round-by-round scoring, and ownership.
-        </p>
-        <div className="mt-4 grid gap-3 sm:flex sm:flex-wrap sm:items-center">
+      <section className="soft-card rounded-[1.75rem] border bg-surface/70 px-4 py-5 backdrop-blur-xl sm:px-6 sm:py-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] uppercase tracking-[0.28em] text-muted">Live tournament</p>
+            <h1 className="mt-1 text-xl font-semibold sm:text-2xl">Tournament Leaderboard</h1>
+          </div>
           <select
             value={selectedTournament}
             onChange={(e) => setSelectedTournament(e.target.value)}
-            className="glass-input w-full rounded-xl px-3 py-2 text-sm sm:w-auto"
+            aria-label="Tournament"
+            className="glass-input rounded-xl px-3 py-2 text-sm"
           >
             {availableTournaments.map((tournament) => (
               <option key={tournament.tournament_slug} value={tournament.tournament_slug}>
@@ -145,22 +165,10 @@ export default function TournamentLeaderboardPage() {
               </option>
             ))}
           </select>
-          <input
-            value={selectedPoolId}
-            onChange={(e) => setSelectedPoolId(e.target.value)}
-            placeholder="Pool ID"
-            className="glass-input w-full rounded-xl px-3 py-2 text-sm sm:w-auto"
-          />
-          <div className="text-xs text-muted">Pool: {poolId}</div>
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted">
-          <span>
-            {pollingActive
-              ? "Tournament scores refresh automatically every 60 seconds while this tab is open."
-              : "Auto-refresh is paused outside tournament hours."}
-          </span>
-          <span>Last updated: {formatLastUpdated(lastUpdated)}</span>
-        </div>
+        <p className="mt-3 text-xs text-muted">
+          Raw strokes and score to par, round by round &middot; {pollingActive ? "live" : "paused outside tournament hours"} &middot; updated {formatLastUpdated(lastUpdated)}
+        </p>
       </section>
 
       {loading && (
