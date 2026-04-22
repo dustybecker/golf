@@ -31,7 +31,7 @@ const DIRECTIONS: Direction[] = [
     essence: "One vertical feed of mixed moments — picks, scores, reactions, locks — all chronological.",
     register: "Twitter for your pool",
     pattern: "Chronological activity feed",
-    status: "coming",
+    status: "live",
   },
   {
     id: 3,
