@@ -40,7 +40,7 @@ const DIRECTIONS: Direction[] = [
     essence: "Chat is the main surface. Channels per event. Scores and picks appear IN chat as rich cards.",
     register: "Discord for adults",
     pattern: "Channel list → active channel",
-    status: "coming",
+    status: "live",
   },
   {
     id: 4,
