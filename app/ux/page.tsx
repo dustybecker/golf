@@ -49,7 +49,7 @@ const DIRECTIONS: Direction[] = [
     essence: "Dense dashboard. Every event, every score, every standing visible at once. Tap any tile to zoom.",
     register: "ESPN BottomLine",
     pattern: "Card-grid dashboard",
-    status: "coming",
+    status: "live",
   },
   {
     id: 5,
