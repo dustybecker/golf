@@ -58,7 +58,7 @@ const DIRECTIONS: Direction[] = [
     essence: "Magazine cover. Big hero on the top story, typography-led, curated editorial cards.",
     register: "The Athletic",
     pattern: "Editorial cards with visual hierarchy",
-    status: "coming",
+    status: "live",
   },
 ];
 
