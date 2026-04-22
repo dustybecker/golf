@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { useRequireEntrant } from "@/lib/useRequireEntrant";
+import { useMemo, useState } from "react";
 
 /*
  * DIRECTION 3 — CLUBHOUSE
@@ -498,29 +497,9 @@ function MessageBlock({
 }
 
 export default function ClubhousePrototype() {
-  const [authed, setAuthed] = useState<boolean | null>(null);
   const [activeChannel, setActiveChannel] = useState<string>("masters");
   const [reactions, setReactions] = useState<Record<string, string>>({});
   const [composer, setComposer] = useState("");
-
-  useRequireEntrant({ ready: authed !== null, entrant: authed ? { is_admin: false } : null });
-
-  useEffect(() => {
-    let cancelled = false;
-    async function check() {
-      try {
-        const res = await fetch("/api/auth/me", { cache: "no-store" });
-        const json = await res.json();
-        if (!cancelled) setAuthed(Boolean(json?.entrant));
-      } catch {
-        if (!cancelled) setAuthed(false);
-      }
-    }
-    void check();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const channel = CHANNELS.find((c) => c.id === activeChannel) ?? CHANNELS[0];
   const messages = MESSAGES[activeChannel] ?? [];

@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useRequireEntrant } from "@/lib/useRequireEntrant";
+import { useState } from "react";
 
 /*
  * DIRECTION 4 — SCOREBOARD
@@ -477,27 +476,7 @@ function SeasonProgressTile() {
 // ---------------------------------------------------------------------------
 
 export default function ScoreboardPrototype() {
-  const [authed, setAuthed] = useState<boolean | null>(null);
   const [density, setDensity] = useState<"compact" | "comfortable">("compact");
-
-  useRequireEntrant({ ready: authed !== null, entrant: authed ? { is_admin: false } : null });
-
-  useEffect(() => {
-    let cancelled = false;
-    async function check() {
-      try {
-        const res = await fetch("/api/auth/me", { cache: "no-store" });
-        const json = await res.json();
-        if (!cancelled) setAuthed(Boolean(json?.entrant));
-      } catch {
-        if (!cancelled) setAuthed(false);
-      }
-    }
-    void check();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   return (
     <main className={density === "compact" ? "space-y-3" : "space-y-4"}>

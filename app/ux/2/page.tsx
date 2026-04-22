@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { useRequireEntrant } from "@/lib/useRequireEntrant";
+import { useMemo, useState } from "react";
 
 /*
  * DIRECTION 2 — TIMELINE
@@ -343,29 +342,9 @@ function FeedCard({
 }
 
 export default function TimelinePrototype() {
-  const [authed, setAuthed] = useState<boolean | null>(null);
   const [activeFilter, setActiveFilter] = useState<"all" | FeedKind>("all");
   const [reactedByMsg, setReactedByMsg] = useState<Record<string, string>>({});
   const [refreshFlash, setRefreshFlash] = useState(false);
-
-  useRequireEntrant({ ready: authed !== null, entrant: authed ? { is_admin: false } : null });
-
-  useEffect(() => {
-    let cancelled = false;
-    async function check() {
-      try {
-        const res = await fetch("/api/auth/me", { cache: "no-store" });
-        const json = await res.json();
-        if (!cancelled) setAuthed(Boolean(json?.entrant));
-      } catch {
-        if (!cancelled) setAuthed(false);
-      }
-    }
-    void check();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const filtered = useMemo(() => {
     const sorted = FEED.slice().sort((a, b) => b.ts - a.ts);

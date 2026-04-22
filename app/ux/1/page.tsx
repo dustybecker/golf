@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { useRequireEntrant } from "@/lib/useRequireEntrant";
+import { useMemo, useState } from "react";
 
 /*
  * DIRECTION 1 — STADIUM
@@ -196,28 +195,8 @@ function Avatar({ drafter, size = "md" }: { drafter: Drafter; size?: "sm" | "md"
 }
 
 export default function StadiumPrototype() {
-  const [authed, setAuthed] = useState<boolean | null>(null);
   const [activeReactionByMsg, setActiveReactionByMsg] = useState<Record<string, string>>({});
   const [composer, setComposer] = useState("");
-
-  useRequireEntrant({ ready: authed !== null, entrant: authed ? { is_admin: false } : null });
-
-  useEffect(() => {
-    let cancelled = false;
-    async function check() {
-      try {
-        const res = await fetch("/api/auth/me", { cache: "no-store" });
-        const json = await res.json();
-        if (!cancelled) setAuthed(Boolean(json?.entrant));
-      } catch {
-        if (!cancelled) setAuthed(false);
-      }
-    }
-    void check();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const hereNowCount = useMemo(() => DRAFTERS.filter((d) => d.hereNow).length, []);
   const orderedDrafters = useMemo(

@@ -1,8 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useRequireEntrant } from "@/lib/useRequireEntrant";
 
 /*
  * DIRECTION 5 — BROADSHEET
@@ -404,26 +402,6 @@ function Endnotes() {
 // ---------------------------------------------------------------------------
 
 export default function BroadsheetPrototype() {
-  const [authed, setAuthed] = useState<boolean | null>(null);
-  useRequireEntrant({ ready: authed !== null, entrant: authed ? { is_admin: false } : null });
-
-  useEffect(() => {
-    let cancelled = false;
-    async function check() {
-      try {
-        const res = await fetch("/api/auth/me", { cache: "no-store" });
-        const json = await res.json();
-        if (!cancelled) setAuthed(Boolean(json?.entrant));
-      } catch {
-        if (!cancelled) setAuthed(false);
-      }
-    }
-    void check();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   return (
     <main className="mx-auto max-w-4xl space-y-6">
       <IssueHeader />
