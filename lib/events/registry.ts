@@ -1,5 +1,6 @@
 import { golfDraftHandler } from "./golfDraft";
 import { bracketNbaHandler } from "./bracketNba";
+import { horseDraftHandler } from "./horseDraft";
 import type { EventTypeHandler, EventRow } from "./types";
 
 function notImplemented(kind: string): EventTypeHandler {
@@ -29,12 +30,12 @@ function notImplemented(kind: string): EventTypeHandler {
 export const EVENT_HANDLERS: Record<string, EventTypeHandler> = {
   "golf-draft": golfDraftHandler,
   "bracket-nba": bracketNbaHandler as EventTypeHandler,
+  "horse-draft": horseDraftHandler as EventTypeHandler,
 
   // Stubs registered so events with these types render a "coming soon" shell
   // instead of crashing. Each becomes a follow-up PR.
   "prop-sheet": notImplemented("prop-sheet"),
   "driver-draft": notImplemented("driver-draft"),
-  "horse-draft": notImplemented("horse-draft"),
   "darts-draft": notImplemented("darts-draft"),
   "tennis-draft": notImplemented("tennis-draft"),
   "bracket-march-madness": notImplemented("bracket-march-madness"),
