@@ -1,8 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useRequireEntrant } from "@/lib/useRequireEntrant";
 
 type Direction = {
   id: number;
@@ -40,7 +38,7 @@ const DIRECTIONS: Direction[] = [
     essence: "Chat is the main surface. Channels per event. Scores and picks appear IN chat as rich cards.",
     register: "Discord for adults",
     pattern: "Channel list → active channel",
-    status: "coming",
+    status: "live",
   },
   {
     id: 4,
@@ -49,7 +47,7 @@ const DIRECTIONS: Direction[] = [
     essence: "Dense dashboard. Every event, every score, every standing visible at once. Tap any tile to zoom.",
     register: "ESPN BottomLine",
     pattern: "Card-grid dashboard",
-    status: "coming",
+    status: "live",
   },
   {
     id: 5,
@@ -58,31 +56,11 @@ const DIRECTIONS: Direction[] = [
     essence: "Magazine cover. Big hero on the top story, typography-led, curated editorial cards.",
     register: "The Athletic",
     pattern: "Editorial cards with visual hierarchy",
-    status: "coming",
+    status: "live",
   },
 ];
 
 export default function UxIndexPage() {
-  const [authed, setAuthed] = useState<boolean | null>(null);
-  useRequireEntrant({ ready: authed !== null, entrant: authed ? { is_admin: false } : null });
-
-  useEffect(() => {
-    let cancelled = false;
-    async function check() {
-      try {
-        const res = await fetch("/api/auth/me", { cache: "no-store" });
-        const json = await res.json();
-        if (!cancelled) setAuthed(Boolean(json?.entrant));
-      } catch {
-        if (!cancelled) setAuthed(false);
-      }
-    }
-    void check();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   return (
     <main className="space-y-5">
       <section className="soft-card rounded-[1.75rem] border bg-surface/70 px-4 py-5 backdrop-blur-xl sm:px-6 sm:py-6">
