@@ -94,7 +94,9 @@ export default async function EventDetailPage({ params }: Props) {
               ? "Golf draft happens in the draft room."
               : handler.kind === "bracket-nba"
                 ? "Fill out your NBA playoff bracket. You can edit any time before the entry deadline."
-                : "Entry UI for this event type is not yet implemented."}
+                : handler.kind === "horse-draft"
+                  ? "Build your $100 stable of 3 horses. Horses with 40-1 or greater odds earn 2x points if they finish in the top 3."
+                  : "Entry UI for this event type is not yet implemented."}
           </p>
           {handler.kind === "golf-draft" ? (
             <Link
@@ -109,6 +111,13 @@ export default async function EventDetailPage({ params }: Props) {
               className="mt-3 inline-flex rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white"
             >
               Open Bracket →
+            </Link>
+          ) : handler.kind === "horse-draft" ? (
+            <Link
+              href={`/events/${event.slug}/entry`}
+              className="mt-3 inline-flex rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white"
+            >
+              Pick Your Stable →
             </Link>
           ) : null}
         </div>

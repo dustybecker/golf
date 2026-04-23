@@ -1,9 +1,11 @@
 import { notFound, redirect } from "next/navigation";
 import BracketNbaForm from "@/components/events/BracketNbaForm";
+import DerbySalaryCapForm from "@/components/events/DerbySalaryCapForm";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getEventBySlug, getCurrentSeasonId } from "@/lib/events/resolve";
 import { getAuthenticatedEntrant } from "@/lib/draftAuth";
 import type { NbaBracketPayload } from "@/lib/events/bracketNba";
+import type { DerbyEntryPayload } from "@/lib/events/horseDraft";
 
 export const revalidate = 0;
 
@@ -71,6 +73,7 @@ export default async function EventEntryPage({ params }: Props) {
   const locked = isLocked(event.status, event.lock_at);
 
   const renderNbaBracket = event.event_type === "bracket-nba";
+  const renderDerby = event.event_type === "horse-draft";
   const config = (event.config ?? {}) as BracketConfig;
 
   return (
@@ -93,6 +96,12 @@ export default async function EventEntryPage({ params }: Props) {
             west: config.west ?? [],
           }}
           existing={(existing?.payload as NbaBracketPayload | undefined) ?? null}
+          locked={locked}
+        />
+      ) : renderDerby ? (
+        <DerbySalaryCapForm
+          slug={event.slug}
+          existing={(existing?.payload as DerbyEntryPayload | undefined) ?? null}
           locked={locked}
         />
       ) : (
