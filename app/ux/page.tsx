@@ -52,10 +52,19 @@ const DIRECTIONS: Direction[] = [
   {
     id: 5,
     slug: "5",
-    name: "Lounge",
-    essence: "Chat-first with a scoreboard pinned to the top of every channel — always visible while you scroll the room.",
-    register: "Discord with a permanent scoreboard",
-    pattern: "75% Clubhouse · 25% Scoreboard",
+    name: "Press Box",
+    essence: "Stadium as main surface with a sticky scoreboard rail alongside. Event stays immersive; data lives beside it, not inside it.",
+    register: "Watching from the press box",
+    pattern: "75% Stadium · 25% Scoreboard (companion rail)",
+    status: "live",
+  },
+  {
+    id: 6,
+    slug: "6",
+    name: "Gameday",
+    essence: "Same 75/25 ratio as Press Box, but the scoreboard is baked INTO the immersive broadcast — pool standings, your card, bonuses all share the Stadium palette.",
+    register: "Broadcast booth with graphics on-screen",
+    pattern: "75% Stadium · 25% Scoreboard (embedded)",
     status: "live",
   },
 ];
