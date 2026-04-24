@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { href: "/tournament", label: "Tournament Leaderboard" },
   { href: "/preferences", label: "Notifications" },
   { href: "/admin", label: "Admin" },
+  { href: "/ux", label: "Design Lab" },
 ];
 
 export default function SiteNav() {
