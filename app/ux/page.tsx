@@ -25,10 +25,10 @@ const DIRECTIONS: Direction[] = [
   {
     id: 2,
     slug: "2",
-    name: "Timeline",
-    essence: "One vertical feed of mixed moments — picks, scores, reactions, locks — all chronological.",
-    register: "Twitter for your pool",
-    pattern: "Chronological activity feed",
+    name: "Command",
+    essence: "Dashboard-first with chat at hand. Most of the screen is data tiles; a chat panel sits beside them so you can drop a take without leaving.",
+    register: "Trading terminal with a chat sidebar",
+    pattern: "75% Scoreboard · 25% Clubhouse",
     status: "live",
   },
   {
@@ -52,10 +52,10 @@ const DIRECTIONS: Direction[] = [
   {
     id: 5,
     slug: "5",
-    name: "Broadsheet",
-    essence: "Magazine cover. Big hero on the top story, typography-led, curated editorial cards.",
-    register: "The Athletic",
-    pattern: "Editorial cards with visual hierarchy",
+    name: "Lounge",
+    essence: "Chat-first with a scoreboard pinned to the top of every channel — always visible while you scroll the room.",
+    register: "Discord with a permanent scoreboard",
+    pattern: "75% Clubhouse · 25% Scoreboard",
     status: "live",
   },
 ];

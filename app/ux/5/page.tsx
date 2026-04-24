@@ -1,18 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo, useState } from "react";
 
 /*
- * DIRECTION 5 — BROADSHEET
+ * DIRECTION 5 — LOUNGE  (Clubhouse 75 / Scoreboard 25)
  *
- * Magazine cover. Serif headlines. Editorial cards. A calm register
- * that says "sit down with your coffee" instead of "live data feed."
+ * Chat-first. The full Clubhouse channel-and-messages experience occupies
+ * most of the screen — but a thin scoreboard strip is pinned to the top of
+ * the active channel, always in view as you scroll. You're in the room;
+ * you can glance up and see the live numbers without leaving.
  *
- * The content is the same season you've seen in the other four
- * prototypes — same draft picks, same scores, same bonuses — but
- * composed like a Sunday paper: a top story, two featured pieces,
- * a pull-quote from the chat, a numbers column, weekend reads,
- * and standings typeset as a sidebar.
+ * Discord with a permanent scoreboard pinned at the top.
  */
 
 type Drafter = {
@@ -39,386 +38,409 @@ function drafterBySlug(slug: string) {
   return DRAFTERS.find((d) => d.slug === slug);
 }
 
-function formatToPar(value: number): string {
-  if (value === 0) return "E";
-  return value > 0 ? `+${value}` : `${value}`;
-}
-
-// ---------------------------------------------------------------------------
-
-function IssueHeader() {
-  const today = new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
+function Avatar({ drafter, size = "md" }: { drafter: Drafter; size?: "xs" | "sm" | "md" }) {
+  const dim =
+    size === "xs"
+      ? "h-5 w-5 text-[8px]"
+      : size === "sm"
+        ? "h-6 w-6 text-[9px]"
+        : "h-8 w-8 text-[10px]";
   return (
-    <section className="border-b border-border/40 pb-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <div className="font-serif text-[10px] uppercase tracking-[0.3em] text-muted">
-            The Surge &middot; Issue 14
-          </div>
-          <div className="mt-1 font-serif text-3xl font-bold leading-none text-info sm:text-4xl">
-            The Weekend Edition
-          </div>
-        </div>
-        <div className="text-right">
-          <div className="font-serif text-[10px] uppercase tracking-[0.28em] text-muted">
-            {today}
-          </div>
-          <div className="mt-1 text-xs text-muted">2026 Decathlon · Round 3 Saturday</div>
-        </div>
-      </div>
-    </section>
+    <div
+      className={`${dim} inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white`}
+      style={{ background: drafter.tint }}
+      aria-label={drafter.name}
+    >
+      {drafter.initials}
+    </div>
   );
 }
 
-// ---------------------------------------------------------------------------
+// -- Channel + message data --
 
-function TopStory() {
-  return (
-    <article className="soft-card overflow-hidden rounded-[1.5rem] border bg-surface/70">
-      {/* Illustration area — gradient + serif typographic fill, no stock photo needed */}
-      <div
-        className="relative h-56 overflow-hidden sm:h-72 md:h-80"
-        style={{
-          background:
-            "radial-gradient(circle at 22% 80%, rgba(47, 158, 68, 0.35), transparent 48%)," +
-            "radial-gradient(circle at 82% 18%, rgba(245, 193, 28, 0.28), transparent 44%)," +
-            "linear-gradient(135deg, #12342a 0%, #0b2a22 55%, #142a2c 100%)",
-        }}
-      >
-        <div className="absolute inset-0 [background-image:linear-gradient(transparent_95%,rgba(255,255,255,0.05)_95%),linear-gradient(90deg,transparent_95%,rgba(255,255,255,0.05)_95%)] [background-size:48px_48px]" />
-        <div className="relative flex h-full items-end p-6 sm:p-8">
-          <div>
-            <div className="font-serif text-[10px] uppercase tracking-[0.3em] text-[#f5c11c]">
-              The Front Page &middot; Golf
-            </div>
-            <div className="mt-2 font-serif text-[52px] font-bold leading-[0.88] text-white sm:text-[72px]">
-              -11
-            </div>
-            <div className="mt-1 font-serif text-sm italic text-white/70">
-              Scheffler, through three
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="p-5 sm:p-7">
-        <div className="font-serif text-[10px] uppercase tracking-[0.28em] text-muted">
-          Moving Day &middot; 22 minutes ago &middot; 3 min read
-        </div>
-        <h2 className="mt-3 font-serif text-3xl font-bold leading-[1.05] text-info sm:text-4xl">
-          Scheffler&rsquo;s moving day is everyone else&rsquo;s math problem.
-        </h2>
-        <p className="mt-3 text-sm leading-7 text-text sm:text-base">
-          The leader sits at -11 with a two-shot cushion on McIlroy, who found an eagle on 8
-          and immediately handed two back in the teeth of Amen Corner. DeChambeau is chasing
-          loudly, Macintyre is chasing quietly, and nine of you have spent the afternoon
-          re-running the math on a Sunday that looks like it already has a winner.
-        </p>
-        <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-muted">
-          <span className="inline-flex items-center gap-1 rounded-full bg-bg/60 px-2 py-0.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            Live &middot; round 3
-          </span>
-          <span>50 made the cut</span>
-          <span>·</span>
-          <span>Chris leads the pool at -18</span>
-          <span>·</span>
-          <Link href="/ux/1" className="font-semibold text-accent underline-offset-4 hover:underline">
-            Read on →
-          </Link>
-        </div>
-      </div>
-    </article>
-  );
+const NOW = Date.now();
+const mins = (n: number) => NOW - n * 60_000;
+const hrs = (n: number) => NOW - n * 3_600_000;
+
+function formatAgo(ts: number): string {
+  const m = Math.round((NOW - ts) / 60_000);
+  if (m < 1) return "now";
+  if (m < 60) return `${m}m`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h}h`;
+  return `${Math.round(h / 24)}d`;
 }
 
-// ---------------------------------------------------------------------------
+type Reaction = { emoji: string; count: number };
 
-function FeaturedCards() {
-  const cards = [
-    {
-      kicker: "The Survivor",
-      kickerColor: "text-amber-700",
-      kickerBg: "bg-amber-500/15",
-      headline: "All six made the cut. Dusty gets the +6.",
-      dek: "The Survivor bonus auto-applied at the cut line Friday evening. It&rsquo;s the first time in two years a drafter&rsquo;s full squad has made the weekend at Augusta.",
-      byline: "Dusty · Masters · Tier 3 · 5×",
-      gradient:
-        "linear-gradient(135deg, #d4a017 0%, #c17b15 45%, #5a3012 100%)",
-      numeral: "+6",
-    },
-    {
-      kicker: "The Spiral",
-      kickerColor: "text-pink-700",
-      kickerBg: "bg-pink-500/15",
-      headline: "Rahm&rsquo;s WD has Thom doing the math out loud.",
-      dek: "Round-one 74, round-two withdrawal, and a quiet eighth-place pool slot that was supposed to be a third. The curse, it turns out, continues.",
-      byline: "Thom · Masters · Hot take",
-      gradient:
-        "linear-gradient(135deg, #b83b6f 0%, #5f1933 50%, #1a0510 100%)",
-      numeral: "💀",
-    },
-  ];
+type ChatMsg =
+  | { kind: "system"; id: string; ts: number; text: string }
+  | { kind: "text"; id: string; ts: number; by: string; text: string; replyTo?: string; reactions?: Reaction[] }
+  | { kind: "score"; id: string; ts: number; golfer: string; headline: string; detail: string; drafter: string }
+  | { kind: "bonus"; id: string; ts: number; title: string; detail: string; reactions?: Reaction[] };
+
+type Channel = {
+  id: string;
+  handle: string;
+  description: string;
+  unread: number;
+  accent: string;
+};
+
+const CHANNELS: Channel[] = [
+  { id: "general",   handle: "#general",   description: "Season-wide catch-all",   unread: 0,  accent: "#64748b" },
+  { id: "masters",   handle: "#masters",   description: "Live Round 3",            unread: 12, accent: "#2f9e44" },
+  { id: "derby",     handle: "#derby",     description: "Opens May 2",             unread: 2,  accent: "#be185d" },
+  { id: "hot-takes", handle: "#hot-takes", description: "No takes too hot",        unread: 5,  accent: "#ea580c" },
+];
+
+const PRESENCE: Record<string, string[]> = {
+  general:    ["chris", "dusty", "wes", "rod"],
+  masters:    ["chris", "dusty", "vobe", "cody", "wes", "dan"],
+  derby:      ["vobe", "thom"],
+  "hot-takes": ["chris", "dusty", "vobe", "cody", "dan"],
+};
+
+const MESSAGES: Record<string, ChatMsg[]> = {
+  general: [
+    { kind: "system", id: "g1", ts: hrs(26), text: "Week 14 of the season" },
+    { kind: "text", id: "g2", ts: hrs(25), by: "chris", text: "tee times for Sunday just posted. Scheffler 2:45 with Rory" },
+    { kind: "text", id: "g3", ts: hrs(6),  by: "rod", text: "who else is thinking about Derby? haven't even looked yet" },
+  ],
+  masters: [
+    { kind: "system", id: "m1", ts: hrs(7), text: "Round 3 underway · 50 made the cut" },
+    { kind: "text", id: "m2", ts: hrs(2), by: "wes", text: "Aberg + Morikawa both top-5. Bank it.", reactions: [{ emoji: "💰", count: 3 }] },
+    { kind: "score", id: "m3", ts: hrs(2), golfer: "Rory McIlroy", headline: "Eagle on 8", detail: "-9 thru 8 · jumps to 2nd", drafter: "Dusty" },
+    { kind: "text", id: "m4", ts: mins(90), by: "dusty", text: "Rory eagle on 8 🚀", reactions: [{ emoji: "🚀", count: 4 }, { emoji: "☘️", count: 2 }] },
+    { kind: "text", id: "m5", ts: mins(72), by: "chris", text: "Scheffler doing Scheffler things", reactions: [{ emoji: "🐐", count: 5 }] },
+    { kind: "text", id: "m6", ts: mins(60), by: "vobe", text: "DeChambeau bombing 400+ off every tee. Can he make a putt today tho", reactions: [{ emoji: "😂", count: 3 }] },
+    { kind: "text", id: "m7", ts: mins(38), by: "thom", text: "Rahm WD has me spiraling", reactions: [{ emoji: "💀", count: 7 }] },
+    { kind: "text", id: "m8", ts: mins(35), by: "chris", text: "the curse continues", replyTo: "m7" },
+    { kind: "bonus", id: "m9", ts: mins(22), title: "Survivor → Dusty +6", detail: "All 6 of his Masters golfers made the cut.", reactions: [{ emoji: "🎉", count: 5 }] },
+    { kind: "score", id: "m10", ts: mins(12), golfer: "Robert Macintyre", headline: "Birdie 17", detail: "-5 thru 17 · ↑ Cody 6th → 4th", drafter: "Cody" },
+    { kind: "text", id: "m11", ts: mins(10), by: "cody", text: "MACINTYRE LET'S GOOOOO", reactions: [{ emoji: "🔥", count: 6 }, { emoji: "🏴", count: 4 }] },
+    { kind: "text", id: "m12", ts: mins(3), by: "dusty", text: "ok so if Rory holds and Scheffler blows up on Sunday…", reactions: [{ emoji: "🙏", count: 2 }] },
+  ],
+  derby: [
+    { kind: "system", id: "d1", ts: hrs(72), text: "#derby opened · 10 days to post" },
+    { kind: "text", id: "d2", ts: hrs(48), by: "thom", text: "who do we like so far" },
+    { kind: "text", id: "d3", ts: hrs(40), by: "vobe", text: "I've got a few longshots circled. waiting on the draw" },
+  ],
+  "hot-takes": [
+    { kind: "text", id: "h1", ts: hrs(12), by: "cody", text: "everyone is sleeping on Macintyre", reactions: [{ emoji: "👀", count: 4 }] },
+    { kind: "text", id: "h2", ts: hrs(6),  by: "vobe", text: "DeChambeau goes -7 on Sunday. mark it.", reactions: [{ emoji: "🫣", count: 5 }] },
+    { kind: "text", id: "h3", ts: hrs(3),  by: "chris", text: "Scheffler +350 pre-tournament was daylight robbery" },
+  ],
+};
+
+// -- The pinned scoreboard strip per channel (the 25%) --
+
+type ScoreboardChip = { label: string; value: string; tone?: "good" | "bad" | "neutral" };
+
+const SCOREBOARD_BY_CHANNEL: Record<string, ScoreboardChip[]> = {
+  general: [
+    { label: "Live", value: "Masters R3", tone: "neutral" },
+    { label: "Pool leader", value: "Chris -18", tone: "good" },
+    { label: "Next event", value: "Derby · 11d" },
+    { label: "Bonuses · season", value: "+18 / 4" },
+  ],
+  masters: [
+    { label: "Leader", value: "Scheffler -11", tone: "good" },
+    { label: "Chasing", value: "Rory -9" },
+    { label: "Pool top", value: "Chris -18" },
+    { label: "You", value: "Dusty -11 · 3rd", tone: "good" },
+    { label: "Cut line", value: "+3 · 50 made" },
+  ],
+  derby: [
+    { label: "Lock", value: "Sat 1pm ET" },
+    { label: "Field", value: "20 horses" },
+    { label: "Picks", value: "3 each" },
+    { label: "Tier", value: "2 · 2.5×" },
+    { label: "Days to post", value: "11" },
+  ],
+  "hot-takes": [
+    { label: "Hottest take", value: "Cody · 🔥 6" },
+    { label: "Most divisive", value: "Vobe · DeChambeau" },
+    { label: "Pool gap", value: "Chris ↔ Wes · 6" },
+    { label: "Live", value: "Masters R3", tone: "neutral" },
+  ],
+};
+
+// -- Components --
+
+const REACTIONS = ["🔥", "🫣", "😭", "💀", "🚀"];
+
+function ReactionRow({ list, you, onTap }: { list: Reaction[]; you?: string; onTap: (emoji: string) => void }) {
   return (
-    <section className="grid gap-4 md:grid-cols-2">
-      {cards.map((c) => (
-        <article key={c.headline} className="soft-card overflow-hidden rounded-[1.25rem] border bg-surface/70">
-          <div
-            className="relative flex h-36 items-end overflow-hidden px-5 py-4 sm:h-40"
-            style={{ background: c.gradient }}
-          >
-            <div className="absolute inset-0 [background-image:linear-gradient(transparent_95%,rgba(255,255,255,0.08)_95%)] [background-size:100%_32px]" />
-            <div className="relative font-serif text-5xl font-bold leading-none text-white/90 sm:text-6xl">
-              {c.numeral}
-            </div>
-          </div>
-          <div className="p-5">
-            <span
-              className={`inline-flex rounded-md px-2 py-0.5 font-serif text-[10px] font-semibold uppercase tracking-[0.22em] ${c.kickerBg} ${c.kickerColor}`}
-            >
-              {c.kicker}
-            </span>
-            <h3
-              className="mt-3 font-serif text-xl font-bold leading-[1.15] text-info"
-              dangerouslySetInnerHTML={{ __html: c.headline }}
-            />
-            <p
-              className="mt-2 text-sm leading-6 text-text"
-              dangerouslySetInnerHTML={{ __html: c.dek }}
-            />
-            <div className="mt-3 font-serif text-[11px] uppercase tracking-[0.18em] text-muted">
-              {c.byline}
-            </div>
-          </div>
-        </article>
-      ))}
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-
-function PullQuote() {
-  return (
-    <section className="relative px-4 py-8 sm:px-8 sm:py-10">
-      <div className="pointer-events-none absolute left-0 top-0 font-serif text-[120px] leading-none text-accent/20 sm:text-[160px]">
-        &ldquo;
-      </div>
-      <blockquote className="relative mx-auto max-w-2xl text-center">
-        <p className="font-serif text-2xl leading-[1.3] text-info sm:text-3xl md:text-4xl">
-          ok so if Rory holds and Scheffler blows up on Sunday&hellip;
-        </p>
-        <footer className="mt-5 font-serif text-xs uppercase tracking-[0.28em] text-muted">
-          Dusty &middot; 3 minutes ago &middot; #masters
-        </footer>
-      </blockquote>
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-
-function NumbersColumn() {
-  const rows = [
-    { label: "Pool points through Masters R3", value: "-18", meta: "Chris" },
-    { label: "Bonuses awarded this season", value: "4", meta: "+18 pts total" },
-    { label: "Avg points per event", value: "27.4", meta: "Season-wide" },
-    { label: "Fewest picks in top 10", value: "0", meta: "Nate &middot; Masters" },
-    { label: "Most 🔥 on a message", value: "10", meta: "Cody · Macintyre" },
-  ];
-  return (
-    <section className="soft-card rounded-[1.25rem] border bg-surface/70 p-5 sm:p-6">
-      <div className="mb-4 flex items-baseline justify-between">
-        <h3 className="font-serif text-lg font-bold text-info">By the numbers</h3>
-        <span className="font-serif text-[10px] uppercase tracking-[0.28em] text-muted">
-          Week 14 &middot; 2026
+    <div className="mt-1 flex flex-wrap items-center gap-1">
+      {list.map((r) => (
+        <span key={r.emoji} className="inline-flex items-center gap-1 rounded-full border border-border/40 bg-bg/60 px-2 py-0.5 text-xs">
+          <span>{r.emoji}</span>
+          <span className="text-muted">{r.count}</span>
         </span>
+      ))}
+      {you && (
+        <span className="inline-flex items-center gap-1 rounded-full border border-accent/40 bg-accent/15 px-2 py-0.5 text-xs text-accent">
+          <span>{you}</span>
+          <span>you</span>
+        </span>
+      )}
+      <div className="flex items-center gap-0.5 pl-1">
+        {REACTIONS.slice(0, 4).map((emoji) => (
+          <button
+            key={emoji}
+            type="button"
+            onClick={() => onTap(emoji)}
+            className="rounded-md px-1 text-sm opacity-40 transition-opacity hover:opacity-100"
+            aria-label={`React ${emoji}`}
+          >
+            {emoji}
+          </button>
+        ))}
       </div>
-      <ol className="divide-y divide-border/30">
-        {rows.map((r) => (
-          <li key={r.label} className="flex items-baseline justify-between gap-4 py-3">
+    </div>
+  );
+}
+
+function MessageBlock({
+  msg,
+  replyTargetAuthor,
+  onReact,
+  youReacted,
+}: {
+  msg: ChatMsg;
+  replyTargetAuthor?: Drafter;
+  onReact: (id: string, emoji: string) => void;
+  youReacted?: string;
+}) {
+  if (msg.kind === "system") {
+    return (
+      <div className="my-2 flex justify-center">
+        <div className="rounded-full border border-border/40 bg-bg/50 px-3 py-1 text-[11px] uppercase tracking-wide text-muted">
+          {msg.text} · {formatAgo(msg.ts)} ago
+        </div>
+      </div>
+    );
+  }
+  if (msg.kind === "text") {
+    const author = drafterBySlug(msg.by);
+    if (!author) return null;
+    return (
+      <div className="flex gap-3 px-2 py-1.5 hover:bg-surface/40">
+        <div className="pt-0.5"><Avatar drafter={author} /></div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-2">
+            <span className="text-sm font-semibold text-info">{author.name}</span>
+            <span className="text-[10px] uppercase tracking-wide text-muted">{formatAgo(msg.ts)} ago</span>
+          </div>
+          {msg.replyTo && replyTargetAuthor && (
+            <div className="mt-0.5 border-l-2 border-border pl-2 text-[11px] text-muted">
+              replying to {replyTargetAuthor.name}
+            </div>
+          )}
+          <div className="mt-0.5 text-sm leading-snug text-text">{msg.text}</div>
+          <ReactionRow list={msg.reactions ?? []} you={youReacted} onTap={(e) => onReact(msg.id, e)} />
+        </div>
+      </div>
+    );
+  }
+  if (msg.kind === "score") {
+    return (
+      <div className="my-1.5 px-2">
+        <div className="overflow-hidden rounded-xl border-l-4 border-emerald-500 bg-emerald-500/5">
+          <div className="flex items-start gap-3 px-3 py-2.5">
+            <div className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-base">⛳</div>
             <div className="min-w-0 flex-1">
-              <div
-                className="text-sm leading-snug text-text"
-                dangerouslySetInnerHTML={{ __html: r.label }}
-              />
-              <div
-                className="mt-0.5 text-[11px] text-muted"
-                dangerouslySetInnerHTML={{ __html: r.meta }}
-              />
-            </div>
-            <div className="shrink-0 font-serif text-2xl font-bold tabular-nums text-info sm:text-3xl">
-              {r.value}
-            </div>
-          </li>
-        ))}
-      </ol>
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-
-function WeekendReads() {
-  const reads = [
-    {
-      kicker: "Next up",
-      title: "Your three horses for the Derby post.",
-      dek: "Post positions land Wednesday. Entries lock Saturday 1pm ET.",
-      time: "11 days &middot; 4 min read",
-      href: "/events/2026-kentucky-derby",
-    },
-    {
-      kicker: "Hot Seat",
-      title: "Thom is up. Scheffler outright. +400.",
-      dek: "Veto deadline Monday 5pm Pacific. Dan pushed back; Vobe approved; Dan folded.",
-      time: "18 hours ago &middot; 2 min read",
-      href: "/hot-seat",
-    },
-    {
-      kicker: "The Calendar",
-      title: "What&rsquo;s on deck after Augusta.",
-      dek: "Two tier-2s, one tier-3 inside the next 60 days. The Kentucky Derby headlines in May.",
-      time: "Season &middot; 3 min read",
-      href: "/calendar",
-    },
-  ];
-  return (
-    <section className="soft-card rounded-[1.25rem] border bg-surface/70 p-5 sm:p-6">
-      <h3 className="mb-4 font-serif text-lg font-bold text-info">Weekend reads</h3>
-      <ul className="divide-y divide-border/30">
-        {reads.map((r) => (
-          <li key={r.title} className="py-4 first:pt-0 last:pb-0">
-            <Link href={r.href} className="block group">
-              <div className="font-serif text-[10px] uppercase tracking-[0.28em] text-accent">
-                {r.kicker}
+              <div className="flex items-center gap-2">
+                <span className="rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700">Score</span>
+                <span className="text-[10px] uppercase tracking-wide text-muted">{formatAgo(msg.ts)} ago</span>
               </div>
-              <div
-                className="mt-1 font-serif text-lg font-bold leading-tight text-info group-hover:underline"
-                dangerouslySetInnerHTML={{ __html: r.title }}
-              />
-              <p
-                className="mt-1 text-sm leading-6 text-text"
-                dangerouslySetInnerHTML={{ __html: r.dek }}
-              />
-              <div
-                className="mt-2 font-serif text-[10px] uppercase tracking-[0.2em] text-muted"
-                dangerouslySetInnerHTML={{ __html: r.time }}
-              />
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
+              <div className="mt-1 text-sm font-semibold text-info">{msg.golfer} · {msg.headline}</div>
+              <div className="mt-0.5 text-xs text-text">{msg.detail}</div>
+              <div className="mt-0.5 text-[11px] uppercase tracking-wide text-muted">drafted by {msg.drafter}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (msg.kind === "bonus") {
+    return (
+      <div className="my-1.5 px-2">
+        <div className="overflow-hidden rounded-xl border-l-4 border-amber-500 bg-amber-500/5">
+          <div className="flex items-start gap-3 px-3 py-2.5">
+            <div className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-base">🏆</div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700">Bonus</span>
+                <span className="text-[10px] uppercase tracking-wide text-muted">{formatAgo(msg.ts)} ago</span>
+              </div>
+              <div className="mt-1 text-sm font-semibold text-info">{msg.title}</div>
+              <div className="mt-0.5 text-xs text-text">{msg.detail}</div>
+              <ReactionRow list={msg.reactions ?? []} you={youReacted} onTap={(e) => onReact(msg.id, e)} />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return null;
 }
 
-// ---------------------------------------------------------------------------
+// -- Pinned scoreboard strip --
 
-function PoolColumn() {
-  const rows: { rank: number; slug: string; total: number }[] = [
-    { rank: 1, slug: "chris", total: -18 },
-    { rank: 2, slug: "wes",   total: -12 },
-    { rank: 3, slug: "dusty", total: -11 },
-    { rank: 4, slug: "dan",   total: -8 },
-    { rank: 5, slug: "cody",  total: -7 },
-    { rank: 6, slug: "vobe",  total: -4 },
-    { rank: 7, slug: "thom",  total: -2 },
-    { rank: 8, slug: "rod",   total: +1 },
-    { rank: 9, slug: "nate",  total: +4 },
-  ];
+function ScoreboardStrip({ chips }: { chips: ScoreboardChip[] }) {
   return (
-    <section className="soft-card rounded-[1.25rem] border bg-surface/70 p-5 sm:p-6">
-      <div className="mb-3 flex items-baseline justify-between">
-        <h3 className="font-serif text-lg font-bold text-info">The Standings</h3>
-        <Link
-          href="/leaderboard"
-          className="font-serif text-[10px] uppercase tracking-[0.28em] text-accent underline-offset-4 hover:underline"
-        >
-          Scorecards
-        </Link>
-      </div>
-      <ol className="divide-y divide-border/30">
-        {rows.map((r) => {
-          const d = drafterBySlug(r.slug);
-          if (!d) return null;
+    <div className="-mx-1 overflow-x-auto px-1 py-1">
+      <div className="flex min-w-max gap-2">
+        {chips.map((c) => {
+          const tone =
+            c.tone === "good"
+              ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-700"
+              : c.tone === "bad"
+                ? "border-danger/30 bg-danger/5 text-danger"
+                : "border-border/40 bg-bg/60 text-text";
           return (
-            <li
-              key={r.slug}
-              className={[
-                "flex items-center gap-3 py-2.5 font-serif",
-                d.isMe ? "text-accent" : "text-text",
-              ].join(" ")}
+            <div
+              key={c.label}
+              className={`inline-flex flex-col rounded-lg border px-3 py-1.5 ${tone}`}
             >
-              <span className="w-6 shrink-0 text-sm font-bold tabular-nums text-muted">
-                {r.rank}.
-              </span>
-              <span className="flex-1 truncate text-base font-semibold">{d.name}</span>
-              <span className="shrink-0 text-base font-bold tabular-nums">
-                {formatToPar(r.total)}
-              </span>
-            </li>
+              <span className="text-[9px] font-semibold uppercase tracking-[0.2em] text-muted">{c.label}</span>
+              <span className="mt-0.5 text-sm font-semibold tabular-nums">{c.value}</span>
+            </div>
           );
         })}
-      </ol>
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-
-function Endnotes() {
-  return (
-    <section className="border-t border-border/40 pt-5">
-      <div className="font-serif text-[10px] uppercase tracking-[0.28em] text-muted">Endnotes</div>
-      <ul className="mt-3 space-y-2 text-xs text-muted sm:columns-2">
-        <li>
-          <span className="font-semibold text-text">Draft opens</span> for the PGA Championship
-          on May 13 at 7:00 PM PT. Nine entrants, six picks, snake order.
-        </li>
-        <li>
-          <span className="font-semibold text-text">Kentucky Derby entries</span> lock Saturday
-          May 2 at 1:00 PM ET. Pick three. Best-finish scoring; second-best breaks ties.
-        </li>
-        <li>
-          <span className="font-semibold text-text">Veto window</span> for Thom&rsquo;s Hot Seat
-          take closes Monday 5:00 PM PT. Zero vetos so far.
-        </li>
-        <li>
-          <span className="font-semibold text-text">Rod and Nate</span> have not checked in since
-          Friday evening. Worth a nudge.
-        </li>
-      </ul>
-      <div className="mt-6 text-center font-serif text-[10px] uppercase tracking-[0.3em] text-muted">
-        The Surge &middot; A private Sunday paper for nine friends.
       </div>
-    </section>
+    </div>
   );
 }
 
 // ---------------------------------------------------------------------------
 
-export default function BroadsheetPrototype() {
-  return (
-    <main className="mx-auto max-w-4xl space-y-6">
-      <IssueHeader />
-      <TopStory />
-      <FeaturedCards />
-      <PullQuote />
-      <section className="grid gap-4 md:grid-cols-[1.1fr,0.9fr]">
-        <NumbersColumn />
-        <PoolColumn />
-      </section>
-      <WeekendReads />
-      <Endnotes />
+export default function LoungePrototype() {
+  const [activeChannel, setActiveChannel] = useState("masters");
+  const [reactions, setReactions] = useState<Record<string, string>>({});
+  const [composer, setComposer] = useState("");
 
-      <div className="pt-2 text-center font-serif text-[10px] uppercase tracking-[0.2em] text-muted">
-        Broadsheet prototype · Direction 5 of 5 ·{" "}
+  const channel = CHANNELS.find((c) => c.id === activeChannel) ?? CHANNELS[0];
+  const messages = MESSAGES[activeChannel] ?? [];
+  const presence = useMemo(() => {
+    const slugs = PRESENCE[activeChannel] ?? [];
+    return slugs.map((s) => drafterBySlug(s)).filter((d): d is Drafter => Boolean(d));
+  }, [activeChannel]);
+  const stripChips = SCOREBOARD_BY_CHANNEL[activeChannel] ?? [];
+
+  function tapReaction(msgId: string, emoji: string) {
+    setReactions((prev) => ({ ...prev, [msgId]: emoji }));
+  }
+
+  return (
+    <main className="space-y-3">
+      {/* Channel pills */}
+      <nav
+        aria-label="Channels"
+        className="soft-card -mx-1 overflow-x-auto rounded-[1.25rem] border bg-surface/80 p-1.5 backdrop-blur-xl"
+      >
+        <div className="flex min-w-max items-center gap-1.5">
+          {CHANNELS.map((c) => {
+            const active = activeChannel === c.id;
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setActiveChannel(c.id)}
+                aria-current={active ? "page" : undefined}
+                className={`group relative flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition-all ${active ? "border-transparent bg-accent text-white shadow-[0_8px_18px_rgba(99,91,255,0.25)]" : "border-transparent bg-surface/60 text-text hover:bg-surface"}`}
+              >
+                <span className="inline-block h-2 w-2 rounded-full" style={{ background: active ? "rgba(255,255,255,0.9)" : c.accent }} />
+                <span>{c.handle}</span>
+                {!active && c.unread > 0 && (
+                  <span className="ml-1 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-accent/20 px-1.5 text-[10px] font-bold text-accent">
+                    {c.unread}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
+      {/* Channel header + pinned scoreboard strip (the 25%) */}
+      <section className="sticky top-2 z-10">
+        <div className="soft-card rounded-[1.25rem] border bg-surface/95 px-3 py-3 backdrop-blur-xl sm:px-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: channel.accent }} />
+                <h1 className="text-base font-semibold text-info">{channel.handle}</h1>
+                <span className="text-xs text-muted">· {channel.description}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              {presence.slice(0, 5).map((d) => <Avatar key={d.slug} drafter={d} size="xs" />)}
+              {presence.length > 5 && <span className="text-[10px] text-muted">+{presence.length - 5}</span>}
+              <span className="ml-1 text-[10px] uppercase tracking-wide text-muted">{presence.length} here</span>
+            </div>
+          </div>
+          {/* The 25% — context-aware scoreboard pinned to the channel */}
+          <div className="mt-2 border-t border-border/20 pt-2">
+            <ScoreboardStrip chips={stripChips} />
+          </div>
+        </div>
+      </section>
+
+      {/* The 75% — chat stream */}
+      <section className="soft-card rounded-[1.5rem] border bg-surface/60 py-2 backdrop-blur-xl">
+        {messages.length === 0 ? (
+          <div className="p-6 text-center text-sm text-muted">Nothing in {channel.handle} yet.</div>
+        ) : (
+          <ul className="space-y-0.5">
+            {messages.map((msg) => {
+              const replyId = msg.kind === "text" && msg.replyTo ? msg.replyTo : undefined;
+              const replyTarget = replyId ? messages.find((m) => m.id === replyId) : undefined;
+              const replyAuthor = replyTarget && replyTarget.kind === "text" ? drafterBySlug(replyTarget.by) : undefined;
+              return (
+                <li key={msg.id}>
+                  <MessageBlock
+                    msg={msg}
+                    replyTargetAuthor={replyAuthor}
+                    onReact={tapReaction}
+                    youReacted={reactions[msg.id]}
+                  />
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      {/* Composer */}
+      <section className="soft-card sticky bottom-2 rounded-[1.5rem] border bg-surface/95 p-2 backdrop-blur-xl">
+        <div className="flex items-end gap-2">
+          <textarea
+            value={composer}
+            onChange={(e) => setComposer(e.target.value)}
+            placeholder={`Message ${channel.handle}…`}
+            rows={1}
+            className="min-h-[44px] flex-1 resize-none rounded-xl border border-border/40 bg-bg/60 px-3.5 py-2.5 text-sm focus:border-accent/50 focus:outline-none"
+          />
+          {REACTIONS.slice(0, 3).map((e) => (
+            <button key={e} type="button" className="rounded-lg px-1.5 py-1 text-base hover:scale-110" aria-label={`Send ${e}`}>{e}</button>
+          ))}
+          <button
+            type="button"
+            disabled={!composer.trim()}
+            className="h-[44px] shrink-0 rounded-xl bg-accent px-4 text-sm font-semibold text-white disabled:opacity-40"
+          >
+            Send
+          </button>
+        </div>
+      </section>
+
+      <div className="text-center text-[10px] uppercase tracking-[0.2em] text-muted">
+        Lounge prototype · Direction 5 of 5 ·{" "}
         <Link href="/ux" className="text-accent underline-offset-4 hover:underline">
-          compare all five
+          compare
         </Link>
       </div>
     </main>
