@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
 import { initialsFor, tintFor } from "@/lib/avatarTint";
 
@@ -221,18 +221,61 @@ function TopBar({
   onSignOut: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const hamburgerRef = useRef<HTMLButtonElement | null>(null);
+  const drawerRef = useRef<HTMLDivElement | null>(null);
 
+  // Focus trap: when drawer opens, save the previously-focused element,
+  // move focus to the first link inside the drawer, and trap Tab cycling
+  // so keyboard users don't escape into the page behind the drawer.
   useEffect(() => {
     if (!open) return;
+
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    // Capture refs at effect time — the lint rule warns about reading them
+    // in cleanup, since they may have changed by then.
+    const drawer = drawerRef.current;
+    const hamburger = hamburgerRef.current;
+
+    const focusables = drawer
+      ? Array.from(
+          drawer.querySelectorAll<HTMLElement>(
+            'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          ),
+        )
+      : [];
+    focusables[0]?.focus();
+
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        setOpen(false);
+        return;
+      }
+      if (e.key !== "Tab" || focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
     }
+
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      // Restore focus to whoever opened the drawer, unless focus has already
+      // been moved elsewhere by a navigation.
+      if (document.activeElement === document.body || drawer?.contains(document.activeElement)) {
+        (previouslyFocused ?? hamburger)?.focus();
+      }
+    };
   }, [open]);
 
   return (
-    <nav className="sticky top-0 z-30 -mx-3 -mt-4 mb-4 sm:-mx-4 sm:-mt-6 lg:-mx-6">
+    <nav className="sticky top-0 z-30 -mx-3 -mt-4 mb-4 sm:-mx-4 sm:-mt-6 md:-mx-6 lg:-mx-8">
       <div
         className="border-b border-[#143a30] text-[#e9e3d1]"
         style={{
@@ -243,12 +286,14 @@ function TopBar({
       >
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-3 py-2 sm:px-4 lg:px-8">
           <button
+            ref={hamburgerRef}
             type="button"
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
             aria-controls="appshell-drawer"
             aria-label={open ? "Close menu" : "Open menu"}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/80 transition-colors hover:bg-white/10"
+            title={open ? "Close menu" : "Open menu"}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/80 transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#4ade80]"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4" aria-hidden="true">
               {open ? (
@@ -295,7 +340,9 @@ function TopBar({
 
         {open && (
           <div
+            ref={drawerRef}
             id="appshell-drawer"
+            role="menu"
             className="border-t border-white/5 bg-[#08201a]/95 px-3 py-2 backdrop-blur sm:px-4 lg:px-8"
           >
             <div className="mx-auto grid max-w-7xl gap-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -712,14 +759,45 @@ export default function AppShell({
 
   if (!sessionReady || !session) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="text-sm text-muted">Loading&hellip;</div>
-      </div>
+      <>
+        {/* Skeleton top bar — same dark gradient as the real one so the page
+            doesn't flash a blank state before the shell mounts. */}
+        <nav className="sticky top-0 z-30 -mx-3 -mt-4 mb-4 sm:-mx-4 sm:-mt-6 md:-mx-6 lg:-mx-8">
+          <div
+            className="border-b border-[#143a30] text-[#e9e3d1]"
+            style={{
+              background:
+                "radial-gradient(circle at 14% 0%, rgba(74, 222, 128, 0.16), transparent 30%)," +
+                "linear-gradient(180deg, #0b2a22 0%, #08201a 100%)",
+            }}
+          >
+            <div className="mx-auto flex max-w-7xl items-center gap-3 px-3 py-2 sm:px-4 lg:px-8">
+              <div className="h-9 w-9 rounded-lg border border-white/10 bg-white/5" aria-hidden="true" />
+              <div className="min-w-0 flex-1">
+                <div className="h-2.5 w-24 animate-pulse rounded bg-white/15" aria-hidden="true" />
+                <div className="mt-1.5 h-3.5 w-32 animate-pulse rounded bg-white/20" aria-hidden="true" />
+              </div>
+            </div>
+          </div>
+        </nav>
+        <div className="flex min-h-[40vh] items-center justify-center">
+          <div className="text-sm text-muted">Loading&hellip;</div>
+        </div>
+      </>
     );
   }
 
   return (
     <>
+      {/* Skip link — keyboard users can jump past the top bar/drawer to the
+          actual page content. Hidden until focused. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-accent focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-white"
+      >
+        Skip to main content
+      </a>
+
       <TopBar
         pathname={pathname}
         pageTitle={title}
@@ -731,14 +809,21 @@ export default function AppShell({
       />
 
       <div className="grid gap-4 lg:grid-cols-[1fr,18rem]">
-        <main className="min-w-0">
+        <main id="main-content" className="min-w-0">
           {!hideHeading && (
             <PageHeader title={title} subtitle={subtitle} presence={presence} />
           )}
           {children}
         </main>
 
-        <aside className="hidden lg:sticky lg:top-[4.5rem] lg:block lg:h-fit lg:self-start">
+        {/* Sticky to the top of the viewport, but max-height + overflow-y-auto
+            lets the rail scroll internally when its content (long bonus list,
+            big standings) exceeds the viewport. Without this, content past
+            the fold is unreachable on tall pages. */}
+        <aside
+          aria-label="Pool snapshot"
+          className="hidden lg:sticky lg:top-[4.5rem] lg:block lg:max-h-[calc(100vh-5rem)] lg:self-start lg:overflow-y-auto"
+        >
           <CompanionRail
             standings={standings}
             myPicks={myPicks}
