@@ -123,6 +123,10 @@ export default function DerbySalaryCapForm({ slug, existing, locked }: Props) {
                     <span className="text-xs font-semibold text-info">${h.price}</span>
                     {!locked && (
                       <button onClick={() => toggle(h)} className="text-xs text-muted hover:text-red-500">
+                      <button
+                        onClick={() => toggle(h)}
+                        className="text-xs text-muted hover:text-red-500"
+                      >
                         ✕
                       </button>
                     )}
@@ -198,6 +202,9 @@ export default function DerbySalaryCapForm({ slug, existing, locked }: Props) {
       )}
 
       {locked && <p className="text-sm text-muted">Entries are locked.</p>}
+      {locked && (
+        <p className="text-sm text-muted">Entries are locked.</p>
+      )}
 
       <p className="text-[11px] text-muted">
         2x Eligible horses (40-1 or greater) earn double points if they finish in the top 3.

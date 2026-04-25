@@ -1,6 +1,7 @@
 import { awardPointsFromScores } from "@/lib/scoring/awardPoints";
 import {
   DERBY_CAP,
+  DERBY_HORSES,
   DERBY_STABLE_SIZE,
   HORSE_BY_ID,
 } from "./derbyHorses";
@@ -23,6 +24,7 @@ type DerbyConfig = {
   results?: Record<string, number>; // horseId -> finish position (1-indexed)
 };
 
+// Points earned by a horse based on its finish position in the race.
 const RACE_POINTS: Record<number, number> = {
   1: 20,
   2: 15,
@@ -124,3 +126,5 @@ export const horseDraftHandler: EventTypeHandler<DerbyEntryPayload> = {
     return "placeholder";
   },
 };
+
+export { DERBY_HORSES, DERBY_CAP, DERBY_STABLE_SIZE };
