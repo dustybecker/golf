@@ -276,14 +276,7 @@ function TopBar({
 
   return (
     <nav className="sticky top-0 z-30 -mx-3 -mt-4 mb-4 sm:-mx-4 sm:-mt-6 md:-mx-6 lg:-mx-8">
-      <div
-        className="border-b border-[#143a30] text-[#e9e3d1]"
-        style={{
-          background:
-            "radial-gradient(circle at 14% 0%, rgba(74, 222, 128, 0.16), transparent 30%)," +
-            "linear-gradient(180deg, #0b2a22 0%, #08201a 100%)",
-        }}
-      >
+      <div className="appshell-topbar text-[#e9e3d1]">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-3 py-2 sm:px-4 lg:px-8">
           <button
             ref={hamburgerRef}
@@ -322,10 +315,15 @@ function TopBar({
           )}
 
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[10px] uppercase tracking-[0.22em] text-white/50">
+            <div
+              className="truncate text-[10px] uppercase tracking-[0.22em] text-white/50"
+              title={liveCtx.copy}
+            >
               {liveCtx.copy}
             </div>
-            <div className="truncate text-sm font-semibold text-white">{pageTitle}</div>
+            <div className="truncate text-sm font-semibold text-white" title={pageTitle}>
+              {pageTitle}
+            </div>
           </div>
 
           {totalMembers > 0 && (
@@ -352,7 +350,13 @@ function TopBar({
                   <Link
                     key={item.href}
                     href={item.href}
-                    onClick={() => setOpen(false)}
+                    onClick={(e) => {
+                      // Tapping the active page in the drawer is a no-op
+                      // navigation. Just close the drawer instead of letting
+                      // Next.js trigger a fresh client transition.
+                      if (active) e.preventDefault();
+                      setOpen(false);
+                    }}
                     aria-current={active ? "page" : undefined}
                     className={[
                       "rounded-lg px-3 py-2 text-sm font-semibold transition-colors",
@@ -419,14 +423,27 @@ function PageHeader({
       <h1 className="text-2xl font-semibold text-info sm:text-3xl">{title}</h1>
       {subtitle && <p className="mt-1 text-sm text-muted">{subtitle}</p>}
 
-      <div className="mt-3 -mx-1 overflow-x-auto px-1">
-        <div className="flex min-w-max items-center gap-2">
+      <div
+        className="mt-3 -mx-1 overflow-x-auto px-1"
+        aria-live="polite"
+        aria-label="Pool presence"
+      >
+        <div className="flex min-w-max items-center gap-2 sm:gap-2.5">
           {sorted.map((m) => {
             const here = isHereNow(m.last_seen_at);
             return (
-              <div key={m.entrant_id} className="flex items-center gap-1.5">
+              <div
+                key={m.entrant_id}
+                className="flex items-center gap-1.5"
+                title={`${m.display_name}${here ? " · here now" : ""}`}
+              >
                 <Avatar name={m.display_name} hereNow={here} size="sm" />
-                <span className={`text-[11px] font-semibold ${here ? "text-text" : "text-muted"}`}>
+                {/* Hide name labels on the smallest phones — avatars + their
+                    pulse dots carry the meaning, and labels were unreadable
+                    at 10–11px when the rail had 9 entrants. Names return at sm+. */}
+                <span
+                  className={`hidden text-[11px] font-semibold sm:inline ${here ? "text-text" : "text-muted"}`}
+                >
                   {m.display_name}
                 </span>
               </div>
@@ -491,7 +508,7 @@ function CompanionRail({
                 >
                   <span className="w-3 shrink-0 text-[10px] tabular-nums text-muted">{i + 1}</span>
                   <Avatar name={s.display_name} size="xs" />
-                  <span className="flex-1 truncate font-medium">
+                  <span className="flex-1 truncate font-medium" title={s.display_name}>
                     {s.display_name}
                     {isMe && <span className="ml-1 text-[9px] uppercase tracking-wide text-accent">you</span>}
                   </span>
@@ -516,7 +533,10 @@ function CompanionRail({
               const cut = toPar === null;
               return (
                 <li key={g.golfer} className="flex items-center gap-2">
-                  <span className={`flex-1 truncate ${cut ? "text-muted line-through" : ""}`}>
+                  <span
+                    className={`flex-1 truncate ${cut ? "text-muted line-through" : ""}`}
+                    title={g.golfer}
+                  >
                     {g.golfer}
                   </span>
                   <span className="w-9 shrink-0 text-right text-[10px] tabular-nums text-muted">
@@ -550,17 +570,18 @@ function CompanionRail({
           <div className="text-xs text-muted">No bonuses yet.</div>
         ) : (
           <ul className="space-y-1.5 text-xs">
-            {bonuses.slice(0, 4).map((b) => (
-              <li key={b.bonus_id} className="flex items-center gap-2">
-                <Avatar name={b.display_name} size="xs" />
-                <span className="flex-1 truncate text-text">
-                  {b.display_name} · {b.bonus_type.replace(/_/g, " ")}
-                </span>
-                <span className="shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 font-bold tabular-nums text-amber-700">
-                  +{b.points}
-                </span>
-              </li>
-            ))}
+            {bonuses.slice(0, 4).map((b) => {
+              const label = `${b.display_name} · ${b.bonus_type.replace(/_/g, " ")}`;
+              return (
+                <li key={b.bonus_id} className="flex items-center gap-2" title={label}>
+                  <Avatar name={b.display_name} size="xs" />
+                  <span className="min-w-0 flex-1 truncate text-text">{label}</span>
+                  <span className="shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 font-bold tabular-nums text-amber-700">
+                    +{b.points}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         )}
       </RailTile>
@@ -763,14 +784,7 @@ export default function AppShell({
         {/* Skeleton top bar — same dark gradient as the real one so the page
             doesn't flash a blank state before the shell mounts. */}
         <nav className="sticky top-0 z-30 -mx-3 -mt-4 mb-4 sm:-mx-4 sm:-mt-6 md:-mx-6 lg:-mx-8">
-          <div
-            className="border-b border-[#143a30] text-[#e9e3d1]"
-            style={{
-              background:
-                "radial-gradient(circle at 14% 0%, rgba(74, 222, 128, 0.16), transparent 30%)," +
-                "linear-gradient(180deg, #0b2a22 0%, #08201a 100%)",
-            }}
-          >
+          <div className="appshell-topbar text-[#e9e3d1]">
             <div className="mx-auto flex max-w-7xl items-center gap-3 px-3 py-2 sm:px-4 lg:px-8">
               <div className="h-9 w-9 rounded-lg border border-white/10 bg-white/5" aria-hidden="true" />
               <div className="min-w-0 flex-1">
