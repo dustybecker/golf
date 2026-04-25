@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import SiteNav from "@/components/SiteNav";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -37,7 +36,6 @@ export default function RootLayout({
       </head>
       <body className="bg-bg text-text">
         <div className="page-shell mx-auto max-w-7xl px-3 py-4 sm:px-4 sm:py-6 md:px-6 lg:px-8">
-          <SiteNav />
           {children}
         </div>
       </body>

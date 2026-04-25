@@ -2,23 +2,18 @@
 
 import Link from "next/link";
 import { Suspense, useEffect, useMemo, useState } from "react";
-import SeasonBoard from "@/components/SeasonBoard";
-import { useRequireEntrant } from "@/lib/useRequireEntrant";
+import AppShell from "@/components/AppShell";
+import { initialsFor, tintFor } from "@/lib/avatarTint";
 
-type Entrant = {
-  entrant_id: string;
-  entrant_name: string;
-  entrant_slug: string;
-  draft_position: number | null;
-  is_admin: boolean;
-};
-
-type TournamentMetaRow = {
-  tournament_slug: string;
-  label: string;
-  draft_open?: boolean;
-  draft_active_now?: boolean;
-};
+/*
+ * Home — wired to real data, wrapped in AppShell.
+ *
+ * AppShell renders the live banner, presence rail, page H1, and the
+ * desktop companion rail with pool standings / my picks / bonuses /
+ * next event. Home's body fills in the live-event detail and the
+ * tournament leaderboard. On mobile the companion rail is hidden, so
+ * Home also includes a compact pool-standings panel as a fallback.
+ */
 
 type EventRow = {
   event_id: string;
@@ -29,277 +24,349 @@ type EventRow = {
   status: string;
   starts_at: string | null;
   ends_at: string | null;
-  group_key: string | null;
+  legacy_pool_id: string | null;
 };
 
-type LiveState =
-  | {
-      kind: "draft";
-      title: string;
-      subtitle: string;
-      cta: { label: string; href: string };
-      chip: { label: string; tone: "live" };
-    }
-  | {
-      kind: "live-event";
-      title: string;
-      subtitle: string;
-      cta: { label: string; href: string };
-      chip: { label: string; tone: "live" };
-    }
-  | {
-      kind: "open-entry";
-      title: string;
-      subtitle: string;
-      cta: { label: string; href: string };
-      chip: { label: string; tone: "info" };
-    }
-  | {
-      kind: "next";
-      title: string;
-      subtitle: string;
-      cta: { label: string; href: string };
-      chip: { label: string; tone: "muted" };
-    }
-  | {
-      kind: "idle";
-      title: string;
-      subtitle: string;
-      cta: { label: string; href: string };
-      chip: { label: string; tone: "muted" };
-    };
+type TournamentRow = {
+  golfer: string;
+  rank: number | null;
+  gross_total: number | null;
+  live_total_to_par?: number | null;
+  position: number | null;
+  position_text: string | null;
+  drafted_by: string[];
+  rounds: Array<{ round_number: number; strokes: number | null; score_status: string }>;
+};
 
-function formatRelativeFromNow(iso: string, now = new Date()): string {
-  const then = new Date(iso);
-  const diffMs = then.getTime() - now.getTime();
-  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-  if (Math.abs(diffDays) < 1) return "today";
-  if (diffDays === 1) return "tomorrow";
-  if (diffDays === -1) return "yesterday";
-  if (diffDays > 0 && diffDays < 7) return `in ${diffDays} days`;
-  if (diffDays > 0 && diffDays < 60) {
-    const weeks = Math.round(diffDays / 7);
-    return `in ${weeks} week${weeks === 1 ? "" : "s"}`;
-  }
-  if (diffDays > 0) {
-    const months = Math.round(diffDays / 30);
-    return `in ${months} month${months === 1 ? "" : "s"}`;
-  }
-  return then.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+type PlayerRow = {
+  entrant_name: string;
+  team_total: number;
+  scoring_golfers: Array<{
+    golfer: string;
+    handicap: number;
+    net_total: number | null;
+    live_net_to_par?: number | null;
+    live_total_to_par?: number | null;
+    position: number | null;
+    position_text: string | null;
+    rounds: Array<{ round_number: number; strokes: number | null; score_status: string }>;
+  }>;
+  bench_golfers: PlayerRow["scoring_golfers"];
+  tie_break_5_position: number | null;
+  tie_break_6_position: number | null;
+};
+
+type SeasonStanding = {
+  entrant_id: string;
+  display_name: string;
+  total_points: number;
+};
+
+function formatToPar(value: number): string {
+  if (!Number.isFinite(value)) return "—";
+  if (value === 0) return "E";
+  return value > 0 ? `+${value}` : `${value}`;
 }
 
-function deriveLiveState(
-  tmeta: TournamentMetaRow[],
-  events: EventRow[],
-): LiveState {
-  const liveDraft = tmeta.find((t) => t.draft_active_now);
-  if (liveDraft) {
-    return {
-      kind: "draft",
-      title: liveDraft.label,
-      subtitle: "Draft is open — make your picks",
-      cta: { label: "Enter Draft Room", href: "/draft" },
-      chip: { label: "Live draft", tone: "live" },
-    };
-  }
-
-  const liveEvent = events.find((e) => e.status === "live");
-  if (liveEvent) {
-    return {
-      kind: "live-event",
-      title: liveEvent.name,
-      subtitle: "Live right now",
-      cta: { label: "Open event", href: `/events/${liveEvent.slug}` },
-      chip: { label: "Live", tone: "live" },
-    };
-  }
-
-  const openEntry = events.find((e) => e.status === "open-entry");
-  if (openEntry) {
-    return {
-      kind: "open-entry",
-      title: openEntry.name,
-      subtitle: openEntry.starts_at
-        ? `Entries open · Starts ${formatRelativeFromNow(openEntry.starts_at)}`
-        : "Entries open",
-      cta: { label: "Make your picks", href: `/events/${openEntry.slug}/entry` },
-      chip: { label: "Entries open", tone: "info" },
-    };
-  }
-
-  const nextScheduled = events
-    .filter((e) => e.status === "scheduled" && e.starts_at)
-    .sort((a, b) => (a.starts_at! > b.starts_at! ? 1 : -1))[0];
-  if (nextScheduled) {
-    return {
-      kind: "next",
-      title: nextScheduled.name,
-      subtitle: `Next up · ${formatRelativeFromNow(nextScheduled.starts_at!)}`,
-      cta: { label: "View calendar", href: "/calendar" },
-      chip: { label: "Scheduled", tone: "muted" },
-    };
-  }
-
-  return {
-    kind: "idle",
-    title: "Season is quiet",
-    subtitle: "Nothing live right now. Check the calendar for what's coming up.",
-    cta: { label: "View calendar", href: "/calendar" },
-    chip: { label: "Quiet", tone: "muted" },
-  };
+function tournamentRowToPar(row: TournamentRow, roundPar = 72): number | null {
+  if (typeof row.live_total_to_par === "number") return Math.round(row.live_total_to_par);
+  if (row.gross_total === null) return null;
+  if (row.rounds.length === 0) return null;
+  return Math.round(row.gross_total - row.rounds.length * roundPar);
 }
 
-function LiveNowTile({ state, loading }: { state: LiveState | null; loading: boolean }) {
-  if (loading || !state) {
-    return (
-      <section className="hero-panel soft-card relative overflow-hidden rounded-[1.75rem] border px-5 py-7 sm:px-6 sm:py-8">
-        <div className="text-[11px] uppercase tracking-[0.28em] text-muted">Loading…</div>
-      </section>
-    );
+function playerRowToPar(row: PlayerRow, roundPar = 72): number | null {
+  let sum = 0;
+  let any = false;
+  for (const g of row.scoring_golfers) {
+    let toPar: number | null = null;
+    if (typeof g.live_net_to_par === "number") toPar = Math.round(g.live_net_to_par);
+    else if (typeof g.live_total_to_par === "number") toPar = Math.round(g.live_total_to_par - g.handicap);
+    else if (g.net_total !== null && g.rounds.length > 0) toPar = Math.round(g.net_total - g.rounds.length * roundPar);
+    if (toPar !== null) {
+      sum += toPar;
+      any = true;
+    }
   }
+  return any ? sum : null;
+}
 
-  const chipClass =
-    state.chip.tone === "live"
-      ? "bg-accent text-white"
-      : state.chip.tone === "info"
-        ? "bg-info/15 text-info"
-        : "bg-surface/70 text-muted";
-
+function Avatar({ name, size = "sm" }: { name: string; size?: "xs" | "sm" }) {
+  const dim = size === "sm" ? "h-6 w-6 text-[9px]" : "h-5 w-5 text-[8px]";
   return (
-    <section className="hero-panel soft-card relative overflow-hidden rounded-[1.75rem] border px-5 py-6 sm:px-6 sm:py-8">
-      <div className="pointer-events-none absolute -left-12 top-8 h-32 w-32 rounded-full bg-accent/20 blur-3xl" />
-      <div className="pointer-events-none absolute right-4 top-4 h-28 w-28 rounded-full bg-accent/10 blur-3xl" />
-      <div className="relative">
-        <span
-          className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.22em] ${chipClass}`}
-        >
-          {state.chip.label}
-        </span>
-        <h1 className="mt-3 text-2xl font-semibold leading-tight text-info sm:text-3xl">
-          {state.title}
-        </h1>
-        <p className="mt-2 text-sm text-muted">{state.subtitle}</p>
-        <Link
-          href={state.cta.href}
-          className="mt-5 inline-flex items-center rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(99,91,255,0.24)]"
-        >
-          {state.cta.label} <span className="ml-2">→</span>
-        </Link>
-      </div>
-    </section>
+    <span
+      className={`${dim} inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white`}
+      style={{ background: tintFor(name) }}
+      aria-label={name}
+    >
+      {initialsFor(name)}
+    </span>
   );
 }
 
-function HomePageContent() {
-  const basePoolId = process.env.NEXT_PUBLIC_POOL_ID || "2026-majors";
+// ---------------------------------------------------------------------------
 
-  const [sessionEntrant, setSessionEntrant] = useState<Entrant | null>(null);
-  const [sessionLoading, setSessionLoading] = useState(true);
-  const [tmeta, setTmeta] = useState<TournamentMetaRow[]>([]);
+function HomeContent() {
   const [events, setEvents] = useState<EventRow[]>([]);
-  const [dataLoading, setDataLoading] = useState(true);
+  const [tournament, setTournament] = useState<TournamentRow[]>([]);
+  const [pool, setPool] = useState<PlayerRow[]>([]);
+  const [seasonRows, setSeasonRows] = useState<SeasonStanding[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
-  useRequireEntrant({ ready: !sessionLoading, entrant: sessionEntrant });
-
-  // Fetch session. Guard hook handles redirect when session is missing.
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
-        const res = await fetch(`/api/auth/me?pool_id=${encodeURIComponent(basePoolId + "-masters")}`, {
-          cache: "no-store",
-        });
-        const json = await res.json();
-        if (!cancelled) setSessionEntrant((json?.entrant ?? null) as Entrant | null);
-      } catch {
-        if (!cancelled) setSessionEntrant(null);
-      } finally {
-        if (!cancelled) setSessionLoading(false);
-      }
-    }
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [basePoolId]);
-
-  // Fetch live-tile context once session is confirmed.
-  useEffect(() => {
-    if (sessionLoading || !sessionEntrant) return;
-    let cancelled = false;
-
-    async function load() {
-      setDataLoading(true);
-      try {
-        const [metaRes, eventsRes] = await Promise.all([
-          fetch(`/api/tournament-meta?pool_id=${encodeURIComponent(basePoolId + "-masters")}`, {
-            cache: "no-store",
-          }),
-          fetch(`/api/season/2026/events`, { cache: "no-store" }),
-        ]);
-        const metaJson = await metaRes.json();
+        const eventsRes = await fetch("/api/season/2026/events", { cache: "no-store" });
         const eventsJson = await eventsRes.json();
         if (cancelled) return;
-        setTmeta(((metaJson?.rows ?? []) as TournamentMetaRow[]) ?? []);
-        setEvents(((eventsJson?.events ?? []) as EventRow[]) ?? []);
-      } catch {
-        if (!cancelled) {
-          setTmeta([]);
-          setEvents([]);
+        const allEvents = (eventsJson?.events ?? []) as EventRow[];
+        setEvents(allEvents);
+
+        const live = allEvents.find((e) => e.status === "live") ?? null;
+        const legacy = live?.legacy_pool_id;
+        const tournamentSlug =
+          live?.event_type === "golf-draft" ? live.slug.replace(/^2026-/, "") : null;
+
+        const promises: Array<Promise<Response>> = [
+          fetch("/api/season/2026/leaderboard", { cache: "no-store" }),
+        ];
+        if (legacy && tournamentSlug) {
+          promises.push(
+            fetch(`/api/leaderboards/tournament?pool_id=${encodeURIComponent(legacy)}&tournament=${encodeURIComponent(tournamentSlug)}`, { cache: "no-store" }),
+            fetch(`/api/leaderboards/player?pool_id=${encodeURIComponent(legacy)}&tournament=${encodeURIComponent(tournamentSlug)}`, { cache: "no-store" }),
+          );
         }
+        const responses = await Promise.all(promises);
+        const [seasonRes, tournamentRes, playerRes] = responses;
+
+        const seasonJson = await seasonRes.json();
+        if (!cancelled) setSeasonRows((seasonJson?.rows ?? []) as SeasonStanding[]);
+
+        if (tournamentRes) {
+          const j = await tournamentRes.json();
+          if (!cancelled) setTournament((j?.rows ?? []) as TournamentRow[]);
+        }
+        if (playerRes) {
+          const j = await playerRes.json();
+          if (!cancelled) setPool((j?.rows ?? []) as PlayerRow[]);
+        }
+      } catch {
+        // empty arrays already
       } finally {
-        if (!cancelled) setDataLoading(false);
+        if (!cancelled) setLoaded(true);
       }
     }
-
     void load();
     return () => {
       cancelled = true;
     };
-  }, [sessionLoading, sessionEntrant, basePoolId]);
+  }, []);
 
-  const liveState = useMemo(() => deriveLiveState(tmeta, events), [tmeta, events]);
+  const liveEvent = useMemo(() => events.find((e) => e.status === "live") ?? null, [events]);
+  const nextEvent = useMemo(() => {
+    if (liveEvent) return null;
+    const upcoming = events
+      .filter((e) => e.status === "scheduled" || e.status === "open-entry")
+      .filter((e) => Boolean(e.starts_at))
+      .sort((a, b) => (a.starts_at! > b.starts_at! ? 1 : -1));
+    return upcoming[0] ?? null;
+  }, [events, liveEvent]);
 
-  async function handleLogout() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    window.location.href = "/sign-in";
-  }
+  const topPool = useMemo(
+    () =>
+      pool
+        .map((row) => ({ row, toPar: playerRowToPar(row) }))
+        .sort((a, b) => {
+          const av = a.toPar ?? 9999;
+          const bv = b.toPar ?? 9999;
+          return av - bv;
+        })
+        .slice(0, 6),
+    [pool],
+  );
 
-  if (sessionLoading || !sessionEntrant) {
-    return (
-      <main className="flex min-h-[40vh] items-center justify-center">
-        <div className="text-sm text-muted">Loading&hellip;</div>
-      </main>
-    );
-  }
+  const topGolfers = useMemo(() => tournament.slice(0, 8), [tournament]);
 
   return (
-    <main className="space-y-5">
-      <LiveNowTile state={liveState} loading={dataLoading} />
-      <SeasonBoard year={2026} />
-      <div className="flex items-center justify-center pt-2">
-        <button
-          type="button"
-          onClick={() => void handleLogout()}
-          className="text-xs text-muted underline underline-offset-4 hover:text-text"
+    <div className="space-y-4">
+      {/* Live event takeover */}
+      {liveEvent ? (
+        <section
+          className="relative overflow-hidden rounded-[1.75rem] border border-[#143a30] text-[#e9e3d1]"
+          style={{
+            background:
+              "radial-gradient(circle at 20% 0%, rgba(74, 222, 128, 0.12), transparent 35%)," +
+              "radial-gradient(circle at 82% 12%, rgba(245, 193, 28, 0.08), transparent 30%)," +
+              "linear-gradient(180deg, #0b2a22 0%, #08201a 70%, #06181430 100%)",
+          }}
         >
-          Sign out ({sessionEntrant.entrant_name})
-        </button>
-      </div>
-    </main>
+          <div className="px-5 py-7 sm:px-8 sm:py-9">
+            <div className="text-[11px] uppercase tracking-[0.32em] text-[#f5c11c]/80">
+              Live now · Tier {liveEvent.tier}
+            </div>
+            <h2 className="mt-2 font-serif text-3xl font-semibold leading-[0.95] text-white sm:text-4xl md:text-5xl">
+              {liveEvent.name}
+            </h2>
+
+            {topGolfers.length > 0 ? (
+              <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-white/5 bg-white/[0.03] px-4 py-3 backdrop-blur">
+                  <div className="text-[10px] uppercase tracking-[0.2em] text-white/50">Leader</div>
+                  <div className="mt-1 truncate text-sm font-semibold text-white">{topGolfers[0].golfer}</div>
+                  <div className="mt-0.5 text-xs text-[#4ade80]">
+                    {formatToPar(tournamentRowToPar(topGolfers[0]) ?? 0)}
+                    {topGolfers[0].drafted_by.length > 0 && ` · ${topGolfers[0].drafted_by.join(", ")}`}
+                  </div>
+                </div>
+                {topGolfers[1] && (
+                  <div className="rounded-2xl border border-white/5 bg-white/[0.03] px-4 py-3 backdrop-blur">
+                    <div className="text-[10px] uppercase tracking-[0.2em] text-white/50">Chasing</div>
+                    <div className="mt-1 truncate text-sm font-semibold text-white">{topGolfers[1].golfer}</div>
+                    <div className="mt-0.5 text-xs text-[#f5c11c]">
+                      {formatToPar(tournamentRowToPar(topGolfers[1]) ?? 0)}
+                      {topGolfers[1].drafted_by.length > 0 && ` · ${topGolfers[1].drafted_by.join(", ")}`}
+                    </div>
+                  </div>
+                )}
+                {topPool[0] && (
+                  <div className="rounded-2xl border border-white/5 bg-white/[0.03] px-4 py-3 backdrop-blur">
+                    <div className="text-[10px] uppercase tracking-[0.2em] text-white/50">Pool leader</div>
+                    <div className="mt-1 truncate text-sm font-semibold text-white">{topPool[0].row.entrant_name}</div>
+                    <div className="mt-0.5 text-xs text-white/70">
+                      {topPool[0].toPar !== null ? formatToPar(topPool[0].toPar) : "—"} combined
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="mt-6 text-sm text-white/60">
+                No live scores synced yet for {liveEvent.name}. Run a sync from{" "}
+                <Link href="/admin" className="underline">Admin</Link> to populate.
+              </p>
+            )}
+          </div>
+        </section>
+      ) : nextEvent ? (
+        <section className="soft-card rounded-[1.5rem] border bg-surface/70 p-5">
+          <div className="text-[11px] uppercase tracking-[0.28em] text-muted">Up next</div>
+          <h2 className="mt-1 text-2xl font-semibold text-info">{nextEvent.name}</h2>
+          <p className="mt-1 text-sm text-muted">
+            Tier {nextEvent.tier} · {nextEvent.status}
+            {nextEvent.starts_at &&
+              ` · starts ${new Date(nextEvent.starts_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`}
+          </p>
+          <Link
+            href={`/events/${nextEvent.slug}`}
+            className="mt-4 inline-flex rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white"
+          >
+            Open event →
+          </Link>
+        </section>
+      ) : (
+        <section className="soft-card rounded-[1.5rem] border bg-surface/70 p-5">
+          <div className="text-[11px] uppercase tracking-[0.28em] text-muted">Quiet right now</div>
+          <p className="mt-2 text-sm text-text">
+            No live events. <Link href="/calendar" className="underline">Check the calendar</Link> for what&rsquo;s coming up.
+          </p>
+        </section>
+      )}
+
+      {/* Tournament leaderboard */}
+      {liveEvent && topGolfers.length > 0 && (
+        <section className="soft-card rounded-[1.5rem] border bg-surface/70 p-4 sm:p-5">
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.22em] text-muted">Tournament</div>
+              <h3 className="mt-1 text-lg font-semibold">Top of the leaderboard</h3>
+            </div>
+            <Link href="/tournament" className="text-xs font-semibold text-accent underline-offset-4 hover:underline">
+              Full board →
+            </Link>
+          </div>
+          <ul className="mt-4 divide-y divide-border/30 rounded-xl border border-border/30 bg-bg/40">
+            {topGolfers.map((row) => {
+              const toPar = tournamentRowToPar(row);
+              return (
+                <li key={row.golfer} className="flex items-center gap-3 px-3 py-2.5">
+                  <span className="w-8 shrink-0 text-[11px] font-semibold tabular-nums text-muted">
+                    {row.position_text ?? row.position ?? "—"}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium">{row.golfer}</div>
+                    {row.drafted_by.length > 0 && (
+                      <div className="flex items-center gap-1.5 text-[11px] text-muted">
+                        {row.drafted_by.slice(0, 1).map((d) => (
+                          <Avatar key={d} name={d} size="xs" />
+                        ))}
+                        <span className="truncate">{row.drafted_by.join(", ")}</span>
+                      </div>
+                    )}
+                  </div>
+                  <span
+                    className={[
+                      "shrink-0 text-sm font-semibold tabular-nums",
+                      toPar === null
+                        ? "text-muted"
+                        : toPar < -5
+                          ? "text-emerald-600"
+                          : toPar < 0
+                            ? ""
+                            : "text-muted",
+                    ].join(" ")}
+                  >
+                    {toPar === null ? "—" : formatToPar(toPar)}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
+      {/* Pool standings — visible on mobile (rail handles desktop) */}
+      <section className="soft-card rounded-[1.5rem] border bg-surface/70 p-4 sm:p-5 lg:hidden">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.22em] text-muted">Pool · season</div>
+            <h3 className="mt-1 text-lg font-semibold">Standings</h3>
+          </div>
+          <Link href="/leaderboard" className="text-xs font-semibold text-accent underline-offset-4 hover:underline">
+            Full pool →
+          </Link>
+        </div>
+        {seasonRows.length === 0 ? (
+          <p className="mt-3 text-sm text-muted">
+            {loaded ? "No standings yet. Once an event finishes, points land here." : "Loading…"}
+          </p>
+        ) : (
+          <ol className="mt-3 space-y-1.5">
+            {seasonRows.slice(0, 6).map((s, i) => (
+              <li
+                key={s.entrant_id}
+                className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm"
+              >
+                <span className="w-4 shrink-0 text-xs font-semibold tabular-nums text-muted">{i + 1}</span>
+                <Avatar name={s.display_name} size="sm" />
+                <span className="flex-1 truncate font-medium">{s.display_name}</span>
+                <span className="shrink-0 font-semibold tabular-nums">{Number(s.total_points).toFixed(1)}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+    </div>
   );
 }
+
+// ---------------------------------------------------------------------------
 
 export default function HomePage() {
   return (
-    <Suspense
-      fallback={
-        <main className="flex min-h-[40vh] items-center justify-center">
-          <div className="text-sm text-muted">Loading home&hellip;</div>
-        </main>
-      }
-    >
-      <HomePageContent />
+    <Suspense fallback={null}>
+      <AppShell title="Home" subtitle="What&rsquo;s happening across the season">
+        <HomeContent />
+      </AppShell>
     </Suspense>
   );
 }

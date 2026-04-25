@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getErrorMessage } from "@/lib/error";
 import { isTournamentPollingActive, TournamentSlug, TOURNAMENTS } from "@/lib/tournaments";
 import { formatLastUpdated, useAutoRefreshValue } from "@/lib/useAutoRefresh";
-import { useRequireEntrant } from "@/lib/useRequireEntrant";
+import AppShell from "@/components/AppShell";
 
 type ScoringGolfer = {
   golfer: string;
@@ -53,26 +53,6 @@ export default function PlayerLeaderboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [authed, setAuthed] = useState<boolean | null>(null);
-
-  useRequireEntrant({ ready: authed !== null, entrant: authed ? { is_admin: false } : null });
-
-  useEffect(() => {
-    let cancelled = false;
-    async function check() {
-      try {
-        const res = await fetch(`/api/auth/me`, { cache: "no-store" });
-        const json = await res.json();
-        if (!cancelled) setAuthed(Boolean(json?.entrant));
-      } catch {
-        if (!cancelled) setAuthed(false);
-      }
-    }
-    void check();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const poolId = useMemo(() => `${basePoolId}-${selectedTournament}`, [basePoolId, selectedTournament]);
   const selectedTournamentMeta = availableTournaments.find(
@@ -203,29 +183,23 @@ export default function PlayerLeaderboardPage() {
   }, [poolId, selectedTournament, refreshTick]);
 
   return (
-    <main className="space-y-5">
-      <section className="soft-card rounded-[1.75rem] border bg-surface/70 px-4 py-5 backdrop-blur-xl sm:px-6 sm:py-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[11px] uppercase tracking-[0.28em] text-muted">Pool scoring</p>
-            <h1 className="mt-1 text-xl font-semibold sm:text-2xl">Player Leaderboard</h1>
-          </div>
-          <select
-            value={selectedTournament}
-            onChange={(e) => setSelectedTournament(e.target.value)}
-            aria-label="Tournament"
-            className="glass-input rounded-xl px-3 py-2 text-sm"
-          >
-            {availableTournaments.map((tournament) => (
-              <option key={tournament.tournament_slug} value={tournament.tournament_slug}>
-                {tournament.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <p className="mt-3 text-xs text-muted">
-          Best four net scores per entrant &middot; {pollingActive ? "live" : "paused outside tournament hours"} &middot; updated {formatLastUpdated(lastUpdated)}
-        </p>
+    <AppShell
+      title="Player Leaderboard"
+      subtitle={`Best four net scores · ${pollingActive ? "live" : "paused outside tournament hours"} · updated ${formatLastUpdated(lastUpdated)}`}
+    >
+      <section className="mb-4 flex flex-wrap items-center gap-2">
+        <select
+          value={selectedTournament}
+          onChange={(e) => setSelectedTournament(e.target.value)}
+          aria-label="Tournament"
+          className="glass-input rounded-xl px-3 py-2 text-sm"
+        >
+          {availableTournaments.map((tournament) => (
+            <option key={tournament.tournament_slug} value={tournament.tournament_slug}>
+              {tournament.label}
+            </option>
+          ))}
+        </select>
       </section>
 
       <nav
@@ -464,6 +438,6 @@ export default function PlayerLeaderboardPage() {
           )}
         </>
       )}
-    </main>
+    </AppShell>
   );
 }
