@@ -68,7 +68,7 @@ export default function SeasonBoard({ year, compact = false }: Props) {
   if (!season) {
     return (
       <div className="rounded-[1.5rem] border border-border/20 bg-surface/35 p-6 text-sm text-muted">
-        No {year} season found. Run the schema seed to populate.
+        The {year} season hasn&rsquo;t been set up yet. Check back shortly.
       </div>
     );
   }

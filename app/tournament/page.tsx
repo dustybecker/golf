@@ -159,7 +159,7 @@ export default function TournamentLeaderboardPage() {
 
       {!loading && !error && rows.length === 0 && (
         <section className="soft-card rounded-[1.5rem] border bg-surface/70 p-4 text-sm text-muted backdrop-blur-xl">
-          No tournament scores yet. Seed `tournament_round_scores` for this tournament to populate the leaderboard.
+          No tournament scores yet. Once a round closes, the leaderboard fills in automatically.
         </section>
       )}
 

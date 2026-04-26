@@ -96,7 +96,7 @@ export default async function CalendarPage() {
 
       {!season ? (
         <div className="rounded-[1.5rem] border border-danger/40 bg-surface/35 p-6 text-sm text-danger">
-          No 2026 season found. Run the schema seed to populate.
+          The 2026 season hasn&rsquo;t been set up yet. Check back shortly.
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

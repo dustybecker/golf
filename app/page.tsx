@@ -363,7 +363,14 @@ function HomeContent() {
 
 export default function HomePage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense
+      fallback={
+        <div className="space-y-4">
+          <div className="h-32 animate-pulse rounded-[1.5rem] border border-border/40 bg-surface/50" />
+          <div className="h-48 animate-pulse rounded-[1.5rem] border border-border/40 bg-surface/40" />
+        </div>
+      }
+    >
       <AppShell title="Home" subtitle="What&rsquo;s happening across the season">
         <HomeContent />
       </AppShell>

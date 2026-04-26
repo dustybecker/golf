@@ -243,7 +243,7 @@ export default function PlayerLeaderboardPage() {
 
       {!loading && !error && rows.length === 0 && (
         <section className="soft-card rounded-[1.5rem] border bg-surface/70 p-4 text-sm text-muted backdrop-blur-xl">
-          No scoring data yet. Seed `tournament_round_scores` for this tournament to populate the leaderboard.
+          No scoring data yet. Standings appear once the tournament starts and scores sync.
         </section>
       )}
 

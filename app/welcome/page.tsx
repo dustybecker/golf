@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { getErrorMessage } from "@/lib/error";
+import ThemeToggle from "@/components/ThemeToggle";
 
 // The video is an env-controlled URL so the commissioner can drop in (or
 // swap out) the actual file without a deploy touching this code. If not set,
@@ -75,7 +76,10 @@ function WelcomePageContent() {
   }
 
   return (
-    <main className="flex min-h-[calc(100vh-9rem)] items-center justify-center px-2 py-6 sm:py-10">
+    <main className="relative flex min-h-[calc(100vh-9rem)] items-center justify-center px-2 py-6 sm:py-10">
+      <div className="absolute right-2 top-2 z-10 sm:right-4 sm:top-4">
+        <ThemeToggle />
+      </div>
       <section className="hero-panel soft-card relative w-full max-w-3xl overflow-hidden rounded-[2rem] border px-5 py-8 sm:px-8 sm:py-10">
         <div className="pointer-events-none absolute -left-20 top-4 h-56 w-56 rounded-full bg-accent/25 blur-3xl" />
         <div className="pointer-events-none absolute right-0 top-12 h-48 w-48 rounded-full bg-accent/15 blur-3xl" />
