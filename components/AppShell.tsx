@@ -305,7 +305,7 @@ function TopBar({
           </button>
 
           {liveCtx.status === "live" && (
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-[#4ade80]/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[#4ade80]">
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-[#4ade80]/25 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[#4ade80]">
               <span className="relative inline-flex h-1.5 w-1.5">
                 <span className="absolute inset-0 animate-ping rounded-full bg-[#4ade80]/70" />
                 <span className="relative inline-block h-1.5 w-1.5 rounded-full bg-[#4ade80]" />
@@ -369,14 +369,17 @@ function TopBar({
               })}
             </div>
             {entrantName && (
-              <div className="mx-auto mt-2 flex max-w-7xl items-center justify-between border-t border-white/5 pt-2 text-xs">
-                <span className="text-white/60">
-                  Signed in as <span className="font-semibold text-white">{entrantName}</span>
-                </span>
+              <div className="mx-auto mt-3 flex max-w-7xl items-center justify-between gap-3 border-t border-white/5 pt-3 text-sm">
+                <div className="flex min-w-0 items-center gap-2">
+                  <Avatar name={entrantName} size="sm" />
+                  <span className="min-w-0 truncate text-white/80" title={entrantName}>
+                    Signed in as <span className="font-semibold text-white">{entrantName}</span>
+                  </span>
+                </div>
                 <button
                   type="button"
                   onClick={onSignOut}
-                  className="text-white/60 underline underline-offset-4 hover:text-white"
+                  className="shrink-0 text-white/60 underline underline-offset-4 hover:text-white"
                 >
                   Sign out
                 </button>
@@ -471,8 +474,8 @@ function RailTile({
   return (
     <div className="rounded-xl border border-border/40 bg-surface/70 p-3">
       <div className="mb-2 flex items-baseline justify-between gap-2">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{label}</div>
-        {extra && <div className="text-[10px] text-muted">{extra}</div>}
+        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">{label}</div>
+        {extra && <div className="text-[11px] text-muted">{extra}</div>}
       </div>
       {children}
     </div>
@@ -494,7 +497,7 @@ function CompanionRail({
 }) {
   return (
     <div className="space-y-3">
-      <RailTile label="Pool · season">
+      <RailTile label="Pool standings" extra="Season">
         {standings.length === 0 ? (
           <div className="text-xs text-muted">No standings yet.</div>
         ) : (
@@ -565,9 +568,11 @@ function CompanionRail({
         )}
       </RailTile>
 
-      <RailTile label="Bonuses · season">
+      <RailTile label="Recent bonuses" extra="Season">
         {bonuses.length === 0 ? (
-          <div className="text-xs text-muted">No bonuses yet.</div>
+          <div className="text-xs text-muted">
+            No bonuses yet. They&rsquo;ll land here as events finalize.
+          </div>
         ) : (
           <ul className="space-y-1.5 text-xs">
             {bonuses.slice(0, 4).map((b) => {
@@ -576,7 +581,7 @@ function CompanionRail({
                 <li key={b.bonus_id} className="flex items-center gap-2" title={label}>
                   <Avatar name={b.display_name} size="xs" />
                   <span className="min-w-0 flex-1 truncate text-text">{label}</span>
-                  <span className="shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 font-bold tabular-nums text-amber-700">
+                  <span className="shrink-0 rounded bg-accent/15 px-1.5 py-0.5 font-bold tabular-nums text-accent">
                     +{b.points}
                   </span>
                 </li>
@@ -596,9 +601,10 @@ function CompanionRail({
             </div>
             <Link
               href={`/events/${liveCtx.event.slug}`}
-              className="mt-1.5 inline-flex rounded-md bg-accent px-2 py-1 text-[10px] font-semibold text-white"
+              className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-accent px-2 py-1 text-[11px] font-semibold text-white"
             >
-              Open event →
+              Open event
+              <span aria-hidden="true">→</span>
             </Link>
           </div>
         </RailTile>
