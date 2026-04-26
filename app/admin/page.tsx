@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getErrorMessage } from "@/lib/error";
-import { useRequireEntrant } from "@/lib/useRequireEntrant";
+import AppShell from "@/components/AppShell";
 import AdminEventFinalizer from "@/components/AdminEventFinalizer";
 
 type TournamentOption = {
@@ -135,12 +135,6 @@ export default function AdminPage() {
   const [sessionEntrant, setSessionEntrant] = useState<Entrant | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
-
-  useRequireEntrant({
-    ready: !loadingSession,
-    entrant: sessionEntrant,
-    requireAdmin: true,
-  });
 
   const [previewRows, setPreviewRows] = useState<HandicapPreviewRow[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -472,33 +466,20 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="space-y-5">
-      <section className="soft-card rounded-[1.75rem] border border-border bg-surface px-4 py-5 sm:px-6 sm:py-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[11px] uppercase tracking-[0.28em] text-muted">Commissioner</p>
-            <h1 className="mt-1 text-xl font-semibold sm:text-2xl">Admin</h1>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={selectedTournament}
-              onChange={(e) => setSelectedTournament(e.target.value as TournamentOption["slug"])}
-              aria-label="Event pool"
-              className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
-            >
-              {TOURNAMENTS.map((tournament) => (
-                <option key={tournament.slug} value={tournament.slug}>
-                  {tournament.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        {sessionEntrant && (
-          <div className="mt-3 text-xs text-muted">
-            Signed in as <span className="font-semibold text-text">{sessionEntrant.entrant_name}</span>
-          </div>
-        )}
+    <AppShell title="Admin" subtitle="Commissioner tools" requireAdmin>
+      <section className="mb-4 flex flex-wrap items-center gap-2">
+        <select
+          value={selectedTournament}
+          onChange={(e) => setSelectedTournament(e.target.value as TournamentOption["slug"])}
+          aria-label="Event pool"
+          className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
+        >
+          {TOURNAMENTS.map((tournament) => (
+            <option key={tournament.slug} value={tournament.slug}>
+              {tournament.label}
+            </option>
+          ))}
+        </select>
       </section>
 
       {!loadingSession && !pageError && sessionEntrant?.is_admin && (
@@ -952,6 +933,6 @@ export default function AdminPage() {
           {activeTab === "events" && <AdminEventFinalizer />}
         </>
       )}
-    </main>
+    </AppShell>
   );
 }

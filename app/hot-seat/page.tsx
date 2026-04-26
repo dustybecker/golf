@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getErrorMessage } from "@/lib/error";
-import { useRequireEntrant } from "@/lib/useRequireEntrant";
+import AppShell from "@/components/AppShell";
 
 type HotSeatRow = {
   hot_seat_id: string;
@@ -54,11 +54,6 @@ export default function HotSeatPage() {
   const [bet, setBet] = useState("");
   const [odds, setOdds] = useState<string>("400");
   const [busy, setBusy] = useState(false);
-
-  useRequireEntrant({
-    ready: !loading,
-    entrant: session?.entrant ?? null,
-  });
 
   async function load() {
     setLoading(true);
@@ -175,18 +170,10 @@ export default function HotSeatPage() {
   }, [data?.members]);
 
   return (
-    <main className="mx-auto max-w-3xl">
-      <div className="mb-4">
-        <div className="text-[11px] uppercase tracking-[0.28em] text-muted">
-          Weekly +10 Longshot
-        </div>
-        <h1 className="text-2xl font-semibold text-info">Hot Seat</h1>
-        <p className="mt-1 text-sm text-muted">
-          One declaration per week. Must be +400 or longer. Other five vote to veto within 24h; 3
-          vetoes kill it. If it hits, +10 bonus points added directly to the yearly total.
-        </p>
-      </div>
-
+    <AppShell
+      title="Hot Seat"
+      subtitle="One declaration per week. Must be +400 or longer. Three vetos within 24h kills it. If it hits, +10 lands directly on the season total."
+    >
       {error ? (
         <div className="mb-3 rounded-md border border-danger/40 bg-danger/10 p-2 text-xs text-danger">
           {error}
@@ -358,6 +345,6 @@ export default function HotSeatPage() {
           ) : null}
         </>
       )}
-    </main>
+    </AppShell>
   );
 }

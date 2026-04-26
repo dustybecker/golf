@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import BracketNbaForm from "@/components/events/BracketNbaForm";
+import AppShell from "@/components/AppShell";
 import DerbySalaryCapForm from "@/components/events/DerbySalaryCapForm";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getEventBySlug, getCurrentSeasonId } from "@/lib/events/resolve";
@@ -77,16 +78,10 @@ export default async function EventEntryPage({ params }: Props) {
   const config = (event.config ?? {}) as BracketConfig;
 
   return (
-    <main className="mx-auto max-w-4xl">
-      <div className="mb-4">
-        <div className="text-[11px] uppercase tracking-[0.28em] text-muted">Entry</div>
-        <h1 className="text-2xl font-semibold text-info">{event.name}</h1>
-        {event.lock_at ? (
-          <p className="text-xs text-muted">
-            Entries lock {new Date(event.lock_at).toLocaleString()}
-          </p>
-        ) : null}
-      </div>
+    <AppShell
+      title={`${event.name} · Entry`}
+      subtitle={event.lock_at ? `Entries lock ${new Date(event.lock_at).toLocaleString()}` : undefined}
+    >
 
       {renderNbaBracket ? (
         <BracketNbaForm
@@ -109,6 +104,6 @@ export default async function EventEntryPage({ params }: Props) {
           Entry UI for <code>{event.event_type}</code> not yet implemented.
         </div>
       )}
-    </main>
+    </AppShell>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getErrorMessage } from "@/lib/error";
-import { useRequireEntrant } from "@/lib/useRequireEntrant";
+import AppShell from "@/components/AppShell";
 
 type ChannelPrefs = Record<string, boolean>;
 
@@ -59,20 +59,15 @@ export default function PreferencesPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  const [authed, setAuthed] = useState<boolean | null>(null);
-
-  useRequireEntrant({ ready: authed !== null, entrant: authed ? { is_admin: false } : null });
-
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
         const res = await fetch("/api/preferences", { cache: "no-store" });
         if (res.status === 401) {
-          if (!cancelled) setAuthed(false);
+          // AppShell handles the redirect to /sign-in; nothing to do here
           return;
         }
-        if (!cancelled) setAuthed(true);
         const body = await res.json();
         if (cancelled) return;
         setEmail(body.email ?? "");
@@ -129,16 +124,10 @@ export default function PreferencesPage() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl">
-      <div className="mb-4">
-        <div className="text-[11px] uppercase tracking-[0.28em] text-muted">Notifications</div>
-        <h1 className="text-2xl font-semibold text-info">Preferences</h1>
-        <p className="mt-1 text-sm text-muted">
-          Email is the default channel. Enable SMS for time-sensitive triggers you&rsquo;d rather not miss
-          &mdash; we keep it minimal by default.
-        </p>
-      </div>
-
+    <AppShell
+      title="Notifications"
+      subtitle="Email is the default. Enable SMS for time-sensitive triggers you don&rsquo;t want to miss."
+    >
       {loading ? (
         <div className="rounded-[1.5rem] border border-border/20 bg-surface/35 p-5 text-sm text-muted">
           Loading&hellip;
@@ -281,6 +270,6 @@ export default function PreferencesPage() {
           </p>
         </div>
       )}
-    </main>
+    </AppShell>
   );
 }

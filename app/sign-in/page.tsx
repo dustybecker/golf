@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { getErrorMessage } from "@/lib/error";
+import ThemeToggle from "@/components/ThemeToggle";
 
 type TournamentOption = {
   slug: "masters" | "pga-championship" | "us-open" | "the-open";
@@ -155,7 +156,10 @@ function SignInPageContent() {
   }
 
   return (
-    <main className="flex min-h-[calc(100vh-9rem)] items-center justify-center px-2 py-6 sm:py-12">
+    <main className="relative flex min-h-[calc(100vh-9rem)] items-center justify-center px-2 py-6 sm:py-12">
+      <div className="absolute right-2 top-2 z-10 sm:right-4 sm:top-4">
+        <ThemeToggle />
+      </div>
       <section className="hero-panel soft-card relative w-full max-w-md overflow-hidden rounded-[2rem] border px-6 py-8 sm:px-8 sm:py-10">
         <div className="pointer-events-none absolute -left-16 top-8 h-44 w-44 rounded-full bg-accent/20 blur-3xl" />
         <div className="pointer-events-none absolute right-6 top-6 h-36 w-36 rounded-full bg-accent/10 blur-3xl" />

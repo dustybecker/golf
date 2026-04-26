@@ -9,7 +9,6 @@ import type {
   BonusCandidate,
   EntryValidation,
   EventEntry,
-  EventRow,
   EventTypeHandler,
   FinishRanking,
 } from "./types";

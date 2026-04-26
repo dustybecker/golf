@@ -153,4 +153,19 @@
     background: rgb(var(--color-surface) / 0.46);
     box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.03);
   }
+
+  /* AppShell top bar — dark Augusta-green gradient in both themes, but
+     a touch lighter in dark mode so it doesn't dissolve into the page. */
+  .appshell-topbar {
+    background:
+      radial-gradient(circle at 14% 0%, rgba(74, 222, 128, 0.16), transparent 30%),
+      linear-gradient(180deg, #0b2a22 0%, #08201a 100%);
+    border-bottom: 1px solid #143a30;
+  }
+  html[data-theme="dark"] .appshell-topbar {
+    background:
+      radial-gradient(circle at 14% 0%, rgba(74, 222, 128, 0.22), transparent 32%),
+      linear-gradient(180deg, #103e30 0%, #0c2a22 100%);
+    border-bottom-color: #1e5240;
+  }
 }

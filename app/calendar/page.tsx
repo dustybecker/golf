@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getAuthenticatedEntrant } from "@/lib/draftAuth";
+import AppShell from "@/components/AppShell";
 
 export const revalidate = 0;
 
@@ -88,20 +89,14 @@ export default async function CalendarPage() {
   const entries = groupEvents(events);
 
   return (
-    <main className="mx-auto max-w-5xl">
-      <div className="mb-4">
-        <div className="text-[11px] uppercase tracking-[0.28em] text-muted">Master Calendar</div>
-        <h1 className="text-2xl font-semibold text-info">
-          {season?.label ?? "2026 Ultimate Sports Decathlon"}
-        </h1>
-        <p className="mt-1 text-sm text-muted">
-          Every event of the season. Tap a card to jump into its entry or leaderboard surface.
-        </p>
-      </div>
+    <AppShell
+      title="Calendar"
+      subtitle={`${season?.label ?? "2026 Ultimate Sports Decathlon"} · every event of the season`}
+    >
 
       {!season ? (
         <div className="rounded-[1.5rem] border border-danger/40 bg-surface/35 p-6 text-sm text-danger">
-          No 2026 season found. Run the schema seed to populate.
+          The 2026 season hasn&rsquo;t been set up yet. Check back shortly.
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -181,6 +176,6 @@ export default async function CalendarPage() {
           })}
         </div>
       )}
-    </main>
+    </AppShell>
   );
 }
