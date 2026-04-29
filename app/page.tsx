@@ -341,7 +341,7 @@ function HomeContent() {
           </p>
         ) : (
           <ol className="mt-3 space-y-1.5">
-            {seasonRows.slice(0, 6).map((s, i) => (
+            {seasonRows.map((s, i) => (
               <li
                 key={s.entrant_id}
                 className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm"
