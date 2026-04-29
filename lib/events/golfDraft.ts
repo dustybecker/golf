@@ -228,13 +228,14 @@ export const golfDraftHandler: EventTypeHandler = {
 
     const poolIdByName = new Map<string, string>();
     for (const row of poolEntrants ?? []) {
-      poolIdByName.set(row.entrant_name as string, row.entrant_id as string);
+      poolIdByName.set((row.entrant_name as string).trim().toLowerCase(), row.entrant_id as string);
     }
 
     const scores = teamRows
       .map((row) => {
-        const canonicalId = canonicalByName.get(row.entrant_name.trim().toLowerCase()) ?? null;
-        const entrantId = canonicalId ?? poolIdByName.get(row.entrant_name);
+        const key = row.entrant_name.trim().toLowerCase();
+        const canonicalId = canonicalByName.get(key) ?? null;
+        const entrantId = canonicalId ?? poolIdByName.get(key);
         if (!entrantId) return null;
         return {
           entrant_id: entrantId,
@@ -293,7 +294,7 @@ export const golfDraftHandler: EventTypeHandler = {
     const entrantIdByName = new Map<string, string>();
     for (const row of poolEntrants ?? []) {
       const canonical = canonicalByName.get((row.entrant_name as string).trim().toLowerCase()) ?? null;
-      entrantIdByName.set(row.entrant_name as string, canonical ?? row.entrant_id as string);
+      entrantIdByName.set((row.entrant_name as string).trim().toLowerCase(), canonical ?? row.entrant_id as string);
     }
 
     const candidates: BonusCandidate[] = [];
@@ -312,7 +313,7 @@ export const golfDraftHandler: EventTypeHandler = {
         return sum + (data?.total_strokes ?? 0);
       }, 0);
 
-      const entrantId = entrantIdByName.get(name);
+      const entrantId = entrantIdByName.get(name.trim().toLowerCase());
       if (!entrantId) continue;
       if (!survivorWinner || total < survivorWinner.total) {
         survivorWinner = { entrant_id: entrantId, total };
@@ -334,7 +335,7 @@ export const golfDraftHandler: EventTypeHandler = {
           (g) => normalizeGolferName(g) === normalizeGolferName(champion!)
         );
         if (!pickedChampion) continue;
-        const entrantId = entrantIdByName.get(name);
+        const entrantId = entrantIdByName.get(name.trim().toLowerCase());
         if (!entrantId) continue;
         candidates.push({
           entrant_id: entrantId,
