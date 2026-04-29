@@ -60,20 +60,25 @@ export const golfDraftHandler: EventTypeHandler = {
 
     // Resolve the canonical season_members entrant_id per person_key so
     // finishes land on the row the season leaderboard expects.
-    const { data: seasonLinks } = await supabaseAdmin
+    // We do this in two explicit queries (same pattern as the presence route)
+    // rather than a Supabase embedded join, which was returning wrong/null
+    // person_keys when draft_entrants had multiple rows per person (one per pool).
+    const { data: seasonMembers } = await supabaseAdmin
       .from("season_members")
-      .select("entrant_id, draft_entrants!inner(person_key)")
+      .select("entrant_id")
       .eq("season_id", event.season_id);
 
+    const memberIds = (seasonMembers ?? []).map((m) => m.entrant_id as string);
     const canonicalByPersonKey = new Map<string, string>();
-    type SeasonLinkRow = {
-      entrant_id: string;
-      draft_entrants: { person_key: string | null } | { person_key: string | null }[] | null;
-    };
-    for (const row of (seasonLinks ?? []) as SeasonLinkRow[]) {
-      const related = Array.isArray(row.draft_entrants) ? row.draft_entrants[0] : row.draft_entrants;
-      const personKey = related?.person_key;
-      if (personKey) canonicalByPersonKey.set(personKey, row.entrant_id);
+
+    if (memberIds.length > 0) {
+      const { data: memberEntrants } = await supabaseAdmin
+        .from("draft_entrants")
+        .select("entrant_id, person_key")
+        .in("entrant_id", memberIds);
+      for (const row of memberEntrants ?? []) {
+        if (row.person_key) canonicalByPersonKey.set(row.person_key as string, row.entrant_id as string);
+      }
     }
 
     const poolPersonByName = new Map<string, string | null>();
@@ -154,20 +159,22 @@ export const golfDraftHandler: EventTypeHandler = {
       .select("entrant_id, entrant_name, person_key")
       .eq("pool_id", legacy.poolId);
 
-    const { data: seasonLinks } = await supabaseAdmin
+    const { data: seasonMembers2 } = await supabaseAdmin
       .from("season_members")
-      .select("entrant_id, draft_entrants!inner(person_key)")
+      .select("entrant_id")
       .eq("season_id", event.season_id);
 
+    const memberIds2 = (seasonMembers2 ?? []).map((m) => m.entrant_id as string);
     const canonicalByPersonKey = new Map<string, string>();
-    type SeasonLinkRow = {
-      entrant_id: string;
-      draft_entrants: { person_key: string | null } | { person_key: string | null }[] | null;
-    };
-    for (const row of (seasonLinks ?? []) as SeasonLinkRow[]) {
-      const related = Array.isArray(row.draft_entrants) ? row.draft_entrants[0] : row.draft_entrants;
-      const personKey = related?.person_key;
-      if (personKey) canonicalByPersonKey.set(personKey, row.entrant_id);
+
+    if (memberIds2.length > 0) {
+      const { data: memberEntrants2 } = await supabaseAdmin
+        .from("draft_entrants")
+        .select("entrant_id, person_key")
+        .in("entrant_id", memberIds2);
+      for (const row of memberEntrants2 ?? []) {
+        if (row.person_key) canonicalByPersonKey.set(row.person_key as string, row.entrant_id as string);
+      }
     }
 
     const entrantIdByName = new Map<string, string>();
