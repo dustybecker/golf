@@ -25,6 +25,58 @@ function resolveLegacyKey(event: EventRow): { poolId: string; tournament: string
   return { poolId: event.legacy_pool_id, tournament };
 }
 
+/**
+ * Builds a map of person_key -> canonical season_member entrant_id.
+ *
+ * The challenge: a person has multiple draft_entrant rows (one per pool),
+ * but only one row appears in season_members. We can't assume which FK
+ * direction the DB uses, so we go through person_key:
+ *
+ * 1. Collect all person_keys from the pool's draft_entrants.
+ * 2. Fetch every draft_entrant row (any pool) that shares those person_keys.
+ * 3. Find which of those entrant_ids appear in season_members for this season.
+ * 4. That entrant_id is the canonical one to write finishes/bonuses against.
+ */
+async function buildCanonicalByPersonKey(
+  personKeys: string[],
+  seasonId: string,
+): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  if (personKeys.length === 0) return result;
+
+  const { data: allWithKey } = await supabaseAdmin
+    .from("draft_entrants")
+    .select("entrant_id, person_key")
+    .in("person_key", personKeys);
+
+  const idsByPersonKey = new Map<string, string[]>();
+  for (const row of allWithKey ?? []) {
+    if (!row.person_key) continue;
+    const key = row.person_key as string;
+    const list = idsByPersonKey.get(key) ?? [];
+    list.push(row.entrant_id as string);
+    idsByPersonKey.set(key, list);
+  }
+
+  const allCandidateIds = Array.from(new Set((allWithKey ?? []).map((e) => e.entrant_id as string)));
+  if (allCandidateIds.length === 0) return result;
+
+  const { data: matchingMembers } = await supabaseAdmin
+    .from("season_members")
+    .select("entrant_id")
+    .eq("season_id", seasonId)
+    .in("entrant_id", allCandidateIds);
+
+  const memberIdSet = new Set((matchingMembers ?? []).map((m) => m.entrant_id as string));
+
+  for (const [personKey, ids] of idsByPersonKey.entries()) {
+    const seasonMemberId = ids.find((id) => memberIdSet.has(id));
+    if (seasonMemberId) result.set(personKey, seasonMemberId);
+  }
+
+  return result;
+}
+
 export const golfDraftHandler: EventTypeHandler = {
   kind: "golf-draft",
   label: "Golf — Draft 6, Score Best 4",
@@ -45,8 +97,6 @@ export const golfDraftHandler: EventTypeHandler = {
 
     const rows = await calculatePlayerLeaderboard(legacy.poolId, legacy.tournament);
 
-    // Resolve entrant_name -> entrant_id via legacy pool. (player leaderboard
-    // currently returns entrant_name; we need uuid for event_finishes.)
     const { data: poolEntrants, error } = await supabaseAdmin
       .from("draft_entrants")
       .select("entrant_id, entrant_name, person_key")
@@ -54,37 +104,16 @@ export const golfDraftHandler: EventTypeHandler = {
     if (error) throw new Error(error.message);
 
     const byName = new Map<string, string>();
-    for (const row of poolEntrants ?? []) {
-      byName.set(row.entrant_name, row.entrant_id);
-    }
-
-    // Resolve the canonical season_members entrant_id per person_key so
-    // finishes land on the row the season leaderboard expects.
-    // We do this in two explicit queries (same pattern as the presence route)
-    // rather than a Supabase embedded join, which was returning wrong/null
-    // person_keys when draft_entrants had multiple rows per person (one per pool).
-    const { data: seasonMembers } = await supabaseAdmin
-      .from("season_members")
-      .select("entrant_id")
-      .eq("season_id", event.season_id);
-
-    const memberIds = (seasonMembers ?? []).map((m) => m.entrant_id as string);
-    const canonicalByPersonKey = new Map<string, string>();
-
-    if (memberIds.length > 0) {
-      const { data: memberEntrants } = await supabaseAdmin
-        .from("draft_entrants")
-        .select("entrant_id, person_key")
-        .in("entrant_id", memberIds);
-      for (const row of memberEntrants ?? []) {
-        if (row.person_key) canonicalByPersonKey.set(row.person_key as string, row.entrant_id as string);
-      }
-    }
-
     const poolPersonByName = new Map<string, string | null>();
     for (const row of poolEntrants ?? []) {
+      byName.set(row.entrant_name, row.entrant_id);
       poolPersonByName.set(row.entrant_name, row.person_key);
     }
+
+    const allPersonKeys = Array.from(
+      new Set((poolEntrants ?? []).map((e) => e.person_key).filter((k): k is string => Boolean(k))),
+    );
+    const canonicalByPersonKey = await buildCanonicalByPersonKey(allPersonKeys, event.season_id);
 
     const scores = rows
       .map((row) => {
@@ -153,29 +182,15 @@ export const golfDraftHandler: EventTypeHandler = {
       }
     }
 
-    // Map entrant_name -> season entrant_id (same resolution as computeFinishes).
     const { data: poolEntrants } = await supabaseAdmin
       .from("draft_entrants")
       .select("entrant_id, entrant_name, person_key")
       .eq("pool_id", legacy.poolId);
 
-    const { data: seasonMembers2 } = await supabaseAdmin
-      .from("season_members")
-      .select("entrant_id")
-      .eq("season_id", event.season_id);
-
-    const memberIds2 = (seasonMembers2 ?? []).map((m) => m.entrant_id as string);
-    const canonicalByPersonKey = new Map<string, string>();
-
-    if (memberIds2.length > 0) {
-      const { data: memberEntrants2 } = await supabaseAdmin
-        .from("draft_entrants")
-        .select("entrant_id, person_key")
-        .in("entrant_id", memberIds2);
-      for (const row of memberEntrants2 ?? []) {
-        if (row.person_key) canonicalByPersonKey.set(row.person_key as string, row.entrant_id as string);
-      }
-    }
+    const allPersonKeys = Array.from(
+      new Set((poolEntrants ?? []).map((e) => e.person_key).filter((k): k is string => Boolean(k))),
+    );
+    const canonicalByPersonKey = await buildCanonicalByPersonKey(allPersonKeys, event.season_id);
 
     const entrantIdByName = new Map<string, string>();
     for (const row of poolEntrants ?? []) {
@@ -228,8 +243,6 @@ export const golfDraftHandler: EventTypeHandler = {
       }
     }
 
-    // finishes isn't used here but is available if we later add bonuses that
-    // depend on finish ranking.
     void finishes;
 
     return candidates;
