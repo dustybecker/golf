@@ -164,14 +164,20 @@ function HomeContent() {
   }, []);
 
   const liveEvent = useMemo(() => events.find((e) => e.status === "live") ?? null, [events]);
+  const openEntryEvents = useMemo(
+    () => events.filter((e) => e.status === "open-entry").sort((a, b) => (a.starts_at ?? "") > (b.starts_at ?? "") ? 1 : -1),
+    [events],
+  );
+
   const nextEvent = useMemo(() => {
     if (liveEvent) return null;
+    if (openEntryEvents.length > 0) return null;
     const upcoming = events
-      .filter((e) => e.status === "scheduled" || e.status === "open-entry")
+      .filter((e) => e.status === "scheduled")
       .filter((e) => Boolean(e.starts_at))
       .sort((a, b) => (a.starts_at! > b.starts_at! ? 1 : -1));
     return upcoming[0] ?? null;
-  }, [events, liveEvent]);
+  }, [events, liveEvent, openEntryEvents]);
 
   const topPool = useMemo(
     () =>
@@ -246,6 +252,26 @@ function HomeContent() {
               </p>
             )}
           </div>
+        </section>
+      ) : openEntryEvents.length > 0 ? (
+        <section className="space-y-3">
+          <div className="text-[11px] uppercase tracking-[0.28em] text-muted px-1">Up next</div>
+          {openEntryEvents.map((event) => (
+            <div key={event.event_id} className="soft-card rounded-[1.5rem] border bg-surface/70 p-5">
+              <h2 className="mt-1 text-2xl font-semibold text-info">{event.name}</h2>
+              <p className="mt-1 text-sm text-muted">
+                Tier {event.tier} · {event.status}
+                {event.starts_at &&
+                  ` · starts ${new Date(event.starts_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`}
+              </p>
+              <Link
+                href={`/events/${event.slug}`}
+                className="mt-4 inline-flex rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white"
+              >
+                Open event →
+              </Link>
+            </div>
+          ))}
         </section>
       ) : nextEvent ? (
         <section className="soft-card rounded-[1.5rem] border bg-surface/70 p-5">
