@@ -25,6 +25,7 @@ function LinkAccountContent() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("picking");
+  const [muted, setMuted] = useState(true);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   // Drive the fading → playing transition with a timer rather than
@@ -127,19 +128,46 @@ function LinkAccountContent() {
         }}
       />
 
-      {/* Welcome video — fullscreen, muted for guaranteed autoplay */}
+      {/* Welcome video — fullscreen, starts muted for guaranteed autoplay */}
       {phase === "playing" && (
-        <video
-          ref={videoRef}
-          muted
-          playsInline
-          className="fixed inset-0 z-50 h-full w-full bg-black object-cover"
-          onEnded={() => void handleVideoEnd()}
-          onError={() => void handleVideoEnd()}
-        >
-          <source src="/cody.mov" type="video/mp4" />
-          <source src="/cody.mov" type="video/quicktime" />
-        </video>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black">
+          <video
+            ref={videoRef}
+            muted={muted}
+            playsInline
+            className="h-full w-full object-contain sm:object-cover"
+            onEnded={() => void handleVideoEnd()}
+            onError={() => void handleVideoEnd()}
+          >
+            <source src="/cody.mov" type="video/mp4" />
+            <source src="/cody.mov" type="video/quicktime" />
+          </video>
+
+          {/* Unmute button */}
+          <button
+            type="button"
+            onClick={() => {
+              setMuted((m) => !m);
+              if (videoRef.current) videoRef.current.muted = !muted;
+            }}
+            className="absolute bottom-6 right-6 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-opacity hover:bg-black/70"
+            aria-label={muted ? "Unmute" : "Mute"}
+          >
+            {muted ? (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                <line x1="23" y1="9" x2="17" y2="15" />
+                <line x1="17" y1="9" x2="23" y2="15" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+              </svg>
+            )}
+          </button>
+        </div>
       )}
 
       {/* Picker UI */}
